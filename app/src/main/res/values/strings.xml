@@ -1,4 +1,10 @@
 <resources>
     <string name="app_name">GeoBeacon</string>
     <string name="title_activity_main">MainActivity</string>
+
+    <string name="scanning">Scanning…</string>
+    <string name="disconnect_dialog_warning">Are you sure you want to disconnect?</string>
+    <string name="warning">Warning</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
 </resources>
