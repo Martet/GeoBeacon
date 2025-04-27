@@ -7,4 +7,7 @@
     <string name="warning">Warning</string>
     <string name="yes">Yes</string>
     <string name="no">No</string>
+
+    <string name="protocol_correct">Spravne!</string>
+    <string name="protocol_wrong">Spatna odpoved. Zkuste to prosim znovu.</string>
 </resources>
