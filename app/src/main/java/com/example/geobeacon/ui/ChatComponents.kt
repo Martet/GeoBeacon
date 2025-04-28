@@ -33,7 +33,7 @@ import com.example.geobeacon.data.MessageAnswer
 import com.example.geobeacon.data.MessageData
 
 @Composable
-fun ChatMessage(message: MessageData, onAnswer: (String) -> Unit) {
+fun ChatMessage(message: MessageData, enableAnswer: Boolean, onAnswer: (String) -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = message.question,
@@ -66,18 +66,20 @@ fun ChatMessage(message: MessageData, onAnswer: (String) -> Unit) {
                     singleLine = true,
                     placeholder = { Text(stringResource(R.string.type_answer)) },
                     shape = MaterialTheme.shapes.medium,
+                    enabled = enableAnswer,
                     modifier = Modifier
                         .fillMaxWidth(0.9f)
                         .padding(end = 8.dp)
                 )
                 IconButton(
+                    enabled = enableAnswer && textField.value.isNotEmpty(),
                     onClick = { onSubmit() },
                     modifier = Modifier.size(32.dp)
                 ){
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.Send,
                         contentDescription = null,
-                        tint = Color.Blue
+                        tint = if(enableAnswer) Color.Blue else Color.Gray
                     )
                 }
             }

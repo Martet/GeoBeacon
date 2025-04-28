@@ -204,6 +204,7 @@ fun ConversationDetail(conversation: ConversationData, onDelete: () -> Unit, onB
                 items(conversation.messages.size) { i ->
                     ChatMessage(
                         message = conversation.messages[i],
+                        enableAnswer = false,
                         onAnswer = {}
                     )
                 }

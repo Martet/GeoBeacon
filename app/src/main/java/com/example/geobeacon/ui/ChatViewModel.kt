@@ -19,7 +19,6 @@ class ChatViewModel(private val repository: AppRepository) : ViewModel() {
     private val _messages = MutableStateFlow<List<MessageData>>(emptyList())
     val messages: StateFlow<List<MessageData>> = _messages.asStateFlow()
     private val _address = MutableStateFlow("")
-    val address: StateFlow<String> = _address.asStateFlow()
     private val _name = MutableStateFlow("")
     val name: StateFlow<String> = _name.asStateFlow()
 

@@ -44,7 +44,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -137,7 +136,6 @@ fun ChatScreen(device: BluetoothDevice, onDisconnect: () -> Unit) {
     val application = context.applicationContext as GeoBeaconApp
     val viewModel: ChatViewModel = viewModel(factory = ChatViewModel.Factory(application.repository))
     viewModel.setAddressName(device.address, device.name)
-    val scope = rememberCoroutineScope()
 
     var showConfirmationDialog by remember { mutableStateOf(false) }
     // Keeps track of the last connection state with the device
@@ -179,31 +177,25 @@ fun ChatScreen(device: BluetoothDevice, onDisconnect: () -> Unit) {
                 CircularProgressIndicator(modifier = Modifier.padding(all = 16.dp))
             }
         } else {
+            val enableAnswer = state?.gatt != null &&
+                state?.connectionState == BluetoothProfile.STATE_CONNECTED &&
+                characteristic != null
+
             LazyColumn(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 state = listState,
             ) {
-                /*Text(text = "Devices details", style = MaterialTheme.typography.headlineSmall)
-                Text(text = "Name: ${device.name} (${device.address})")
-                Text(text = "Status: ${state?.connectionState?.toConnectionStateString()}")
-                Text(text = "MTU: ${state?.mtu}")
-                Text(text = "Services: ${state?.services?.joinToString { it.uuid.toString() + " " + it.type }}")
-                Text(text = "Message sent: ${state?.messageSent}")
-                Text(text = "Message received: ${state?.messageReceived}")
-
-                Text(text = "Messages")*/
                 items(
                     count = messages.size,
                     key = { messages[it].id }
                 ) { i ->
                     ChatMessage(
                         message = messages[i],
+                        enableAnswer = enableAnswer,
                         onAnswer = { answer ->
-                            if (state?.gatt != null && characteristic != null && answer.isNotEmpty()) {
-                                sendData(state?.gatt!!, characteristic!!, answer.trim() + "\n")
-                                viewModel.addAnswer(answer)
-                            }
+                            sendData(state?.gatt!!, characteristic!!, answer.trim() + "\n")
+                            viewModel.addAnswer(answer)
                         }
                     )
                 }
@@ -324,22 +316,11 @@ private fun sendData(
 private data class DeviceConnectionState(
     val gatt: BluetoothGatt?,
     val connectionState: Int,
-    val mtu: Int,
     val services: List<BluetoothGattService> = emptyList(),
-    val messageSent: Boolean = false,
-    val messageReceived: String = "",
 ) {
     companion object {
-        val None = DeviceConnectionState(null, -1, -1)
+        val None = DeviceConnectionState(null, BluetoothProfile.STATE_DISCONNECTED)
     }
-}
-
-internal fun Int.toConnectionStateString() = when (this) {
-    BluetoothProfile.STATE_CONNECTED -> "Connected"
-    BluetoothProfile.STATE_CONNECTING -> "Connecting"
-    BluetoothProfile.STATE_DISCONNECTED -> "Disconnected"
-    BluetoothProfile.STATE_DISCONNECTING -> "Disconnecting"
-    else -> "N/A"
 }
 
 @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
@@ -393,29 +374,9 @@ private fun BLEConnectEffect(
                 }
             }
 
-            override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
-                super.onMtuChanged(gatt, mtu, status)
-                state = state.copy(gatt = gatt, mtu = mtu)
-                currentOnStateChange(state)
-            }
-
             override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
                 super.onServicesDiscovered(gatt, status)
                 state = state.copy(services = gatt.services)
-                currentOnStateChange(state)
-            }
-
-            override fun onCharacteristicWrite(
-                gatt: BluetoothGatt?,
-                characteristic: BluetoothGattCharacteristic?,
-                status: Int,
-            ) {
-                super.onCharacteristicWrite(gatt, characteristic, status)
-                Log.d(
-                    "GeoBeacon",
-                    "Characteristic write: ${characteristic?.uuid.toString()} - $status}"
-                )
-                state = state.copy(messageSent = status == BluetoothGatt.GATT_SUCCESS)
                 currentOnStateChange(state)
             }
         }
@@ -440,8 +401,6 @@ private fun BLEConnectEffect(
                     value
                 )
                 if (value != null) {
-                    state = state.copy(messageReceived = value.decodeToString())
-                    currentOnStateChange(state)
                     currentOnRead(value.decodeToString())
                 }
             }
