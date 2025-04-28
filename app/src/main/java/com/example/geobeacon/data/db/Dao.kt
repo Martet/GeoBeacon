@@ -2,6 +2,7 @@ package com.example.geobeacon.data.db
 
 import androidx.room.Dao
 import androidx.room.DatabaseView
+import androidx.room.Delete
 import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.Insert
@@ -14,11 +15,20 @@ import androidx.room.Update
 @Dao
 interface ChatDao {
     @Transaction
-    @Query("SELECT * FROM conversations WHERE address = :address ORDER BY timestamp DESC LIMIT 1")
-    fun getLastConversation(address: String): ConversationWithMessagesAndAnswers?
+    @Query("SELECT * FROM conversations WHERE address = :address AND finished = 0 ORDER BY timestamp DESC LIMIT 1")
+    suspend fun getLastActiveConversation(address: String): ConversationWithMessagesAndAnswers?
+
+    @Query("SELECT * FROM conversations")
+    suspend fun getConversations(): List<ConversationEntity>
+
+    @Query("SELECT * FROM conversations WHERE id = :id")
+    suspend fun getConversation(id: Long): ConversationWithMessagesAndAnswers?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertConversation(conversation: ConversationEntity): Long
+
+    @Delete
+    suspend fun deleteConversation(conversation: ConversationEntity)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertChatMessage(message: MessageEntity): Long
@@ -28,6 +38,9 @@ interface ChatDao {
 
     @Update(onConflict = OnConflictStrategy.REPLACE, entity = AnswerEntity::class)
     suspend fun updateAnswer(answer: AnswerEntity)
+
+    @Query("UPDATE conversations SET finished = 1 WHERE id = :id")
+    suspend fun setConversationFinished(id: Long)
 }
 
 data class ConversationWithMessagesAndAnswers(

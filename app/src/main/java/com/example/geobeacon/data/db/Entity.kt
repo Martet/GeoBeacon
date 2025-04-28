@@ -9,7 +9,9 @@ import androidx.room.ForeignKey
 data class ConversationEntity(
     @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "id") val id: Long = 0,
     @ColumnInfo(name = "address") val address: String,
+    @ColumnInfo(name = "name") val name: String,
     @ColumnInfo(name = "timestamp") val timestamp: Long,
+    @ColumnInfo(name = "finished") val finished: Boolean,
 )
 
 @Entity(

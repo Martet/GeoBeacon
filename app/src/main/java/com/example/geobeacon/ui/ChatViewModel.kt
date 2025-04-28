@@ -21,13 +21,16 @@ class ChatViewModel(private val repository: AppRepository) : ViewModel() {
     val messages: StateFlow<List<MessageData>> = _messages.asStateFlow()
     private val _address = MutableStateFlow("")
     val address: StateFlow<String> = _address.asStateFlow()
+    private val _name = MutableStateFlow("")
+    val name: StateFlow<String> = _name.asStateFlow()
 
     init {
         loadMessages()
     }
 
-    fun setAddress(address: String) {
+    fun setAddressName(address: String, name: String) {
         _address.value = address
+        _name.value = name
         loadMessages()
     }
 
@@ -82,13 +85,22 @@ class ChatViewModel(private val repository: AppRepository) : ViewModel() {
         }
     }
 
+    fun finishConversation() {
+        viewModelScope.launch {
+            try {
+                repository.finishConversation(_address.value)
+            } catch (e: Exception) {
+                Log.e("GeoBeacon", "Failed to finish conversation", e)
+            }
+        }
+    }
+
     private fun loadMessages() {
         viewModelScope.launch {
             try {
-                val loadedMessages = repository.getLastConversation(_address.value)
+                val loadedMessages = repository.getLastConversation(_address.value, _name.value)
                 _messages.value = loadedMessages
                 Log.d("GeoBeacon", "Loaded ${loadedMessages.size} messages")
-
             } catch (e: Exception) {
                 Log.e("GeoBeacon", "Failed to load messages", e)
             }

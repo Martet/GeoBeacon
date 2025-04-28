@@ -22,6 +22,7 @@ import androidx.activity.compose.BackHandler
 import androidx.annotation.RequiresPermission
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -32,7 +33,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
@@ -44,14 +46,20 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -87,12 +95,15 @@ private val CHARACTERISTIC_UUID: UUID = UUID.fromString("01ff0101-ba5e-f4ee-5ca1
 
 @SuppressLint("MissingPermission")
 @Composable
-fun MainScreen(modifier: Modifier) {
+fun MainScreen() {
     var connectedDevice by remember {
         mutableStateOf<BluetoothDevice?>(null)
     }
 
-    AnimatedContent(targetState = connectedDevice, label = "Selected device") { device ->
+    AnimatedContent(
+        targetState = connectedDevice,
+        label = "Selected device",
+    ) { device ->
         if (device == null) {
             // Scans for BT devices and handles clicks (see FindDeviceSample)
             ScanningScreen {
@@ -145,13 +156,14 @@ fun ScanningScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
 fun ChatScreen(device: BluetoothDevice, onDisconnect: () -> Unit) {
     val context = LocalContext.current
     val application = context.applicationContext as GeoBeaconApp
     val viewModel: ChatViewModel = viewModel(factory = ChatViewModel.Factory(application.repository))
-    viewModel.setAddress(device.address)
+    viewModel.setAddressName(device.address, device.name)
     val scope = rememberCoroutineScope()
 
     var showConfirmationDialog by remember { mutableStateOf(false) }
@@ -174,39 +186,62 @@ fun ChatScreen(device: BluetoothDevice, onDisconnect: () -> Unit) {
     BLEConnectEffect(device = device, onStateChange = {state = it}) {
         val trimmedMessage = it.trim()
         Log.d("GeoBeacon", "Message received: $trimmedMessage")
-        if (trimmedMessage.contentEquals(R.string.protocol_wrong.toString())) {
-            viewModel.updateLastAnswer(AnswerStatus.ANSWER_WRONG)
-        } else if (trimmedMessage.contentEquals(R.string.protocol_correct.toString())) {
-            viewModel.updateLastAnswer(AnswerStatus.ANSWER_CORRECT)
-        } else {
-            viewModel.addMessage(MessageData(trimmedMessage, emptyList()))
+        when (trimmedMessage) {
+            context.getString(R.string.protocol_wrong) -> viewModel.updateLastAnswer(AnswerStatus.ANSWER_WRONG)
+            context.getString(R.string.protocol_correct) -> viewModel.updateLastAnswer(AnswerStatus.ANSWER_CORRECT)
+            context.getString(R.string.protocol_end) -> viewModel.finishConversation()
+            else -> viewModel.addMessage(MessageData(trimmedMessage, emptyList()))
         }
     }
 
-    Column(
-        modifier = Modifier
-            .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(text = "Devices details", style = MaterialTheme.typography.headlineSmall)
-        Text(text = "Name: ${device.name} (${device.address})")
-        Text(text = "Status: ${state?.connectionState?.toConnectionStateString()}")
-        Text(text = "MTU: ${state?.mtu}")
-        Text(text = "Services: ${state?.services?.joinToString { it.uuid.toString() + " " + it.type }}")
-        Text(text = "Message sent: ${state?.messageSent}")
-        Text(text = "Message received: ${state?.messageReceived}")
+    val listState = rememberLazyListState()
 
-        Text(text = "Messages")
-        for (message in messages) {
-            ChatMessage(
-                message = message,
-                last = message == messages.last(),
-                onAnswer = { answer ->
-                    sendData(state!!.gatt!!, characteristic!!, answer + "\n")
-                    viewModel.addAnswer(answer)
+    Column {
+        TopAppBar(title = { Text(device.name) }, expandedHeight = 24.dp)
+        if (messages.isEmpty()) {
+            Row(
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                CircularProgressIndicator(modifier = Modifier.padding(all = 16.dp))
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                state = listState,
+            ) {
+                /*Text(text = "Devices details", style = MaterialTheme.typography.headlineSmall)
+                Text(text = "Name: ${device.name} (${device.address})")
+                Text(text = "Status: ${state?.connectionState?.toConnectionStateString()}")
+                Text(text = "MTU: ${state?.mtu}")
+                Text(text = "Services: ${state?.services?.joinToString { it.uuid.toString() + " " + it.type }}")
+                Text(text = "Message sent: ${state?.messageSent}")
+                Text(text = "Message received: ${state?.messageReceived}")
+
+                Text(text = "Messages")*/
+                items(
+                    count = messages.size,
+                    key = { messages[it].id }
+                ) { i ->
+                    ChatMessage(
+                        message = messages[i],
+                        onAnswer = { answer ->
+                            if (state?.gatt != null && characteristic != null && answer.isNotEmpty()) {
+                                sendData(state?.gatt!!, characteristic!!, answer.trim() + "\n")
+                                viewModel.addAnswer(answer)
+                            }
+                        }
+                    )
                 }
-            )
+                item {
+                    LaunchedEffect(key1 = messages) {
+                        if (messages.isNotEmpty()) {
+                            listState.animateScrollToItem(messages.lastIndex)
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -235,57 +270,6 @@ fun ChatScreen(device: BluetoothDevice, onDisconnect: () -> Unit) {
                 }
             }
         )
-    }
-}
-
-@Composable
-fun ChatMessage(message: MessageData, last: Boolean = false, onAnswer: (String) -> Unit) {
-    Card {
-        Text(text = message.question)
-        for (answer in message.answers) {
-            ChatAnswer(answer)
-        }
-        if (last) {
-            val textField = rememberSaveable {
-                mutableStateOf("")
-            }
-            Row {
-                TextField(
-                    value = textField.value,
-                    onValueChange = { textField.value = it },
-                    modifier = Modifier.fillMaxWidth(0.8f)
-                )
-                IconButton(onClick = { onAnswer(textField.value) }){
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Send,
-                        contentDescription = null,
-                        tint = Color.Blue,
-                        modifier = Modifier.size(8.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun ChatAnswer(answer: MessageAnswer) {
-    Row {
-        Icon(
-            imageVector = when (answer.status) {
-                AnswerStatus.ANSWER_CORRECT -> Icons.Default.Check
-                AnswerStatus.ANSWER_WRONG -> Icons.Default.Close
-                AnswerStatus.ANSWER_PENDING -> Icons.Default.Refresh
-            },
-            tint = when (answer.status) {
-                AnswerStatus.ANSWER_CORRECT -> Color.Green
-                AnswerStatus.ANSWER_WRONG -> Color.Red
-                AnswerStatus.ANSWER_PENDING -> Color.Blue
-            },
-            contentDescription = null,
-            modifier = Modifier.size(8.dp).padding(end = 8.dp)
-        )
-        Text(answer.text)
     }
 }
 
@@ -502,7 +486,7 @@ private fun BLEConnectEffect(
                     state.gatt?.connect()
                 } else {
                     // Otherwise create a new GATT connection
-                    state = state.copy(gatt = device.connectGatt(context, false, gattCallback))
+                    state = state.copy(gatt = device.connectGatt(context, true, gattCallback))
                 }
             } else if (event == Lifecycle.Event.ON_STOP) {
                 // Unless you have a reason to keep connected while in the bg you should disconnect

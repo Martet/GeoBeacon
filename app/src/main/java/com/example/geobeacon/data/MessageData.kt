@@ -1,6 +1,16 @@
 package com.example.geobeacon.data
 
 import androidx.compose.runtime.Immutable
+import java.util.Date
+
+@Immutable
+data class ConversationData(
+    val name: String = "",
+    val date: Date = Date(),
+    val finished: Boolean = false,
+    val messages: List<MessageData> = emptyList(),
+    val id: Long = 0,
+)
 
 @Immutable
 data class MessageData(
