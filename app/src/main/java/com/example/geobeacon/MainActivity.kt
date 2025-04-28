@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -65,22 +66,37 @@ fun MainApp(settingsViewModel: SettingsViewModel, settings: SettingsEntity) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
-            BottomNavigationBar(navController = navController)
+            BottomNavigationBar(navController = navController, devMode = settings.devMode)
         }
     ) { padding ->
         NavHost(
             navController,
-            startDestination = Screens.Chat.screen.route,
+            startDestination = when (settings.devMode) {
+                true -> DevScreens.Config.screen.route
+                false -> Screens.Chat.screen.route
+            },
             modifier = Modifier.padding(padding)
         ) {
-            composable(Screens.History.screen.route) {
-                HistoryScreen()
-            }
-            composable(Screens.Chat.screen.route) {
-                MainScreen()
-            }
-            composable(Screens.Settings.screen.route) {
-                SettingsScreen(settingsViewModel)
+            if (settings.devMode) {
+                composable(DevScreens.Dialog.screen.route) {
+                    Text("Dialog")
+                }
+                composable(DevScreens.Config.screen.route) {
+                    Text("Config")
+                }
+                composable(DevScreens.Settings.screen.route) {
+                    SettingsScreen(settingsViewModel)
+                }
+            } else {
+                composable(Screens.History.screen.route) {
+                    HistoryScreen()
+                }
+                composable(Screens.Chat.screen.route) {
+                    MainScreen()
+                }
+                composable(Screens.Settings.screen.route) {
+                    SettingsScreen(settingsViewModel)
+                }
             }
         }
     }

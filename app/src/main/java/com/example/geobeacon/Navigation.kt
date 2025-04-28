@@ -25,25 +25,36 @@ enum class Screens(val screen: Screen) {
     Settings(Screen("settings", R.string.settings, R.drawable.outline_settings_24))
 }
 
+enum class DevScreens(val screen: Screen) {
+    Dialog(Screen("dialog", R.string.dialog, R.drawable.outline_chat_24)),
+    Config(Screen("config", R.string.config, R.drawable.outline_edit_24)),
+    Settings(Screen("settings", R.string.settings, R.drawable.outline_settings_24))
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun BottomNavigationBar(navController: NavHostController) {
+fun BottomNavigationBar(navController: NavHostController, devMode: Boolean = false) {
     val navBackStackEntry = navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry.value?.destination?.route
 
     NavigationBar {
-        Screens.entries.forEach { item ->
+        val screens: List<Screen> = if (devMode) {
+            DevScreens.entries.map { it.screen }
+        } else {
+            Screens.entries.map { it.screen }
+        }
+        screens.forEach { item ->
             NavigationBarItem(
                 icon = {
                     Icon(
-                        painter = painterResource(id = item.screen.icon),
-                        contentDescription = stringResource(item.screen.title)
+                        painter = painterResource(id = item.icon),
+                        contentDescription = stringResource(item.title)
                     )
                        },
-                label = { Text(text = stringResource(item.screen.title)) },
-                selected = currentRoute?.startsWith(item.screen.route) == true,
+                label = { Text(text = stringResource(item.title)) },
+                selected = currentRoute?.startsWith(item.route) == true,
                 onClick = {
-                    navController.navigate(item.screen.route) {
+                    navController.navigate(item.route) {
                         navController.graph.startDestinationRoute?.let { screenRoute ->
                             popUpTo(screenRoute) {
                                 saveState = true
