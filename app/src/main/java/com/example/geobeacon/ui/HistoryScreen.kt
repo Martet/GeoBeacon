@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
@@ -139,16 +140,18 @@ fun ConversationItem(
                 style = MaterialTheme.typography.bodySmall
             )
         }
-        Row {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             if (!conversation.finished) {
                 Icon(
                     imageVector = Icons.Filled.Warning,
-                    contentDescription = "Incomplete conversation"
+                    contentDescription = "Incomplete conversation",
+                    modifier = Modifier.size(16.dp)
                 )
             }
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = "Enter conversation"
+                contentDescription = "Enter conversation",
+                modifier = Modifier.size(32.dp)
             )
         }
     }
@@ -207,6 +210,29 @@ fun ConversationDetail(conversation: ConversationData, onDelete: () -> Unit, onB
                         enableAnswer = false,
                         onAnswer = {}
                     )
+                }
+                if (!conversation.finished) {
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Warning,
+                                contentDescription = "Ongoing conversation",
+                                tint = Color.Gray,
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+                    }
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text(stringResource(R.string.history_incomplete_conversation))
+                        }
+                    }
                 }
             }
         }
