@@ -1,9 +1,9 @@
 package com.example.geobeacon.data.db
 
-import com.example.geobeacon.data.MessageData
-import com.example.geobeacon.data.MessageAnswer
 import com.example.geobeacon.data.AnswerStatus
 import com.example.geobeacon.data.ConversationData
+import com.example.geobeacon.data.MessageAnswer
+import com.example.geobeacon.data.MessageData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Date

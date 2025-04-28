@@ -2,8 +2,8 @@ package com.example.geobeacon.data.db
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
-import androidx.room.PrimaryKey
 import androidx.room.ForeignKey
+import androidx.room.PrimaryKey
 
 @Entity(tableName = "conversations")
 data class ConversationEntity(
