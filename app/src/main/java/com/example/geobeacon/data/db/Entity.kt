@@ -49,3 +49,11 @@ data class AnswerEntity(
     @ColumnInfo(name = "text") val text: String,
     @ColumnInfo(name = "status") val status: Int,
 )
+
+@Entity(tableName = "settings")
+data class SettingsEntity(
+    @PrimaryKey val id: Int = 0,
+    val respectSystemTheme: Boolean = true,
+    val darkMode: Boolean = false,
+    val devMode: Boolean = false,
+)

@@ -12,6 +12,8 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -20,7 +22,9 @@ import com.example.geobeacon.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(viewModel: SettingsViewModel) {
+    val settings by viewModel.settings.collectAsState()
+
     Column {
         TopAppBar(
             title = { Text(stringResource(R.string.settings_title)) },
@@ -30,24 +34,40 @@ fun SettingsScreen() {
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Row(
-                modifier = Modifier.height(24.dp).fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+            SettingsItem {
                 Text(stringResource(R.string.settings_developer))
-                Switch(checked = true, onCheckedChange = {})
+                Switch(
+                    checked = settings.devMode,
+                    onCheckedChange = { viewModel.switchDevMode(it) }
+                )
             }
             HorizontalDivider()
-            Row(
-                modifier = Modifier.height(24.dp).fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(stringResource(R.string.settings_developer))
-                Switch(checked = true, onCheckedChange = {})
+            SettingsItem {
+                Text(stringResource(R.string.settings_respect_theme))
+                Switch(
+                    checked = settings.respectSystemTheme,
+                    onCheckedChange = { viewModel.switchRespectSystemTheme(it) }
+                )
             }
-            HorizontalDivider()
+            SettingsItem {
+                Text(stringResource(R.string.settings_dark_mode))
+                Switch(
+                    checked = settings.darkMode,
+                    onCheckedChange = { viewModel.switchDarkMode(it) },
+                    enabled = !settings.respectSystemTheme
+                )
+            }
         }
+    }
+}
+
+@Composable
+fun SettingsItem(content: @Composable () -> Unit) {
+    Row(
+        modifier = Modifier.height(24.dp).fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        content()
     }
 }

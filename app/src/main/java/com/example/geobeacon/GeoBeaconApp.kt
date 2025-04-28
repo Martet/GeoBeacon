@@ -2,9 +2,11 @@ package com.example.geobeacon
 
 import android.app.Application
 import com.example.geobeacon.data.db.AppDatabase
-import com.example.geobeacon.data.db.AppRepository
+import com.example.geobeacon.data.db.ChatRepository
+import com.example.geobeacon.data.db.SettingsRepository
 
 class GeoBeaconApp : Application() {
     val database by lazy { AppDatabase.getDatabase(this) }
-    val repository by lazy { AppRepository(database.chatDao()) }
+    val chatRepository by lazy { ChatRepository(database.chatDao()) }
+    val settingsRepository by lazy { SettingsRepository(database.settingsDao()) }
 }

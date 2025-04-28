@@ -7,13 +7,13 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.geobeacon.data.ConversationData
-import com.example.geobeacon.data.db.AppRepository
+import com.example.geobeacon.data.db.ChatRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class HistoryViewModel(private val repository: AppRepository) : ViewModel() {
+class HistoryViewModel(private val repository: ChatRepository) : ViewModel() {
     private val _conversations = MutableStateFlow<List<ConversationData>>(emptyList())
     val conversations: StateFlow<List<ConversationData>> = _conversations.asStateFlow()
     private val _conversation = MutableStateFlow<ConversationData?>(null)
@@ -59,7 +59,7 @@ class HistoryViewModel(private val repository: AppRepository) : ViewModel() {
     }
 
     companion object {
-        fun Factory(repository: AppRepository): ViewModelProvider.Factory = viewModelFactory {
+        fun Factory(repository: ChatRepository): ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 HistoryViewModel(repository)
             }

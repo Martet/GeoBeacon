@@ -9,13 +9,13 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.geobeacon.data.AnswerStatus
 import com.example.geobeacon.data.MessageAnswer
 import com.example.geobeacon.data.MessageData
-import com.example.geobeacon.data.db.AppRepository
+import com.example.geobeacon.data.db.ChatRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class ChatViewModel(private val repository: AppRepository) : ViewModel() {
+class ChatViewModel(private val repository: ChatRepository) : ViewModel() {
     private val _messages = MutableStateFlow<List<MessageData>>(emptyList())
     val messages: StateFlow<List<MessageData>> = _messages.asStateFlow()
     private val _address = MutableStateFlow("")
@@ -107,7 +107,7 @@ class ChatViewModel(private val repository: AppRepository) : ViewModel() {
 
 
     companion object {
-        fun Factory(repository: AppRepository): ViewModelProvider.Factory = viewModelFactory {
+        fun Factory(repository: ChatRepository): ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 ChatViewModel(repository)
             }

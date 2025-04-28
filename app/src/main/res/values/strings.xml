@@ -20,4 +20,6 @@
     <string name="settings_title">Settings</string>
     <string name="settings_developer">Developer mode</string>
     <string name="history_incomplete_conversation">Ongoing conversation</string>
+    <string name="settings_respect_theme">Respect system theme</string>
+    <string name="settings_dark_mode">Dark mode</string>
 </resources>

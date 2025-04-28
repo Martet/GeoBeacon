@@ -134,7 +134,7 @@ fun ScanningScreen(
 fun ChatScreen(device: BluetoothDevice, onDisconnect: () -> Unit) {
     val context = LocalContext.current
     val application = context.applicationContext as GeoBeaconApp
-    val viewModel: ChatViewModel = viewModel(factory = ChatViewModel.Factory(application.repository))
+    val viewModel: ChatViewModel = viewModel(factory = ChatViewModel.Factory(application.chatRepository))
     viewModel.setAddressName(device.address, device.name)
 
     var showConfirmationDialog by remember { mutableStateOf(false) }

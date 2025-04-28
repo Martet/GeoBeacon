@@ -8,7 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Date
 
-class AppRepository(private val dao: ChatDao) {
+class ChatRepository(private val dao: ChatDao) {
     suspend fun getLastConversation(address: String, name: String): List<MessageData> = withContext(Dispatchers.IO) {
         val conversation = dao.getLastActiveConversation(address)
         if (conversation == null) {

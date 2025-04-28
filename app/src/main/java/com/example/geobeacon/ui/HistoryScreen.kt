@@ -53,7 +53,7 @@ import kotlinx.coroutines.launch
 fun HistoryScreen() {
     val context = LocalContext.current
     val application = context.applicationContext as GeoBeaconApp
-    val viewModel: HistoryViewModel = viewModel(factory = HistoryViewModel.Factory(application.repository))
+    val viewModel: HistoryViewModel = viewModel(factory = HistoryViewModel.Factory(application.chatRepository))
 
     val conversations: List<ConversationData> by viewModel.conversations.collectAsState()
     val selectedConversation by viewModel.conversation.collectAsState()
