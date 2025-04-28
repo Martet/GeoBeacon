@@ -20,12 +20,14 @@ import com.example.geobeacon.data.MessageData
 class HistoryViewModel(private val repository: AppRepository) : ViewModel() {
     private val _conversations = MutableStateFlow<List<ConversationData>>(emptyList())
     val conversations: StateFlow<List<ConversationData>> = _conversations.asStateFlow()
+    private val _conversation = MutableStateFlow<ConversationData?>(null)
+    val conversation: StateFlow<ConversationData?> = _conversation.asStateFlow()
 
     init {
         loadConversations()
     }
 
-    private fun loadConversations() {
+    fun loadConversations() {
         viewModelScope.launch {
             try {
                 val loadedConversations = repository.getConversations()
@@ -37,6 +39,28 @@ class HistoryViewModel(private val repository: AppRepository) : ViewModel() {
         }
     }
 
+    fun loadConversation(conversationId: Long) {
+        viewModelScope.launch {
+            try {
+                val loadedConversation = repository.getConversation(conversationId)
+                _conversation.value = loadedConversation
+            } catch (e: Exception) {
+                Log.e("GeoBeacon", "Failed to load conversation", e)
+            }
+        }
+    }
+
+    fun setConversation(conversation: ConversationData?) {
+        _conversation.value = conversation
+    }
+
+    fun deleteConversation(conversationId: Long) {
+        viewModelScope.launch {
+            repository.deleteConversation(conversationId)
+            _conversation.value = null
+            loadConversations()
+        }
+    }
 
     companion object {
         fun Factory(repository: AppRepository): ViewModelProvider.Factory = viewModelFactory {

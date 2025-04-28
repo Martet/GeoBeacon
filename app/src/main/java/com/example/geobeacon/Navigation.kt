@@ -28,7 +28,6 @@ data class Screen(
 // Enum to hold all the screens
 enum class Screens(val screen: Screen) {
     History(Screen("history", R.string.history, R.drawable.outline_history_24)),
-    HistoryDetail(Screen("history/{conversationId}", R.string.history, R.drawable.outline_history_24)),
     Chat(Screen("chat", R.string.chat, R.drawable.outline_chat_24)),
     Settings(Screen("settings", R.string.settings, R.drawable.outline_settings_24))
 }
@@ -40,7 +39,7 @@ fun BottomNavigationBar(navController: NavHostController) {
     val currentRoute = navBackStackEntry.value?.destination?.route
 
     NavigationBar {
-        Screens.entries.filter { it != Screens.HistoryDetail }.forEach { item ->
+        Screens.entries.forEach { item ->
             NavigationBarItem(
                 icon = {
                     Icon(

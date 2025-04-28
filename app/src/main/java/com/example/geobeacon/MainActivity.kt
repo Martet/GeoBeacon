@@ -30,7 +30,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navigation
-import com.example.geobeacon.ui.HistoryDetailScreen
 import com.example.geobeacon.ui.HistoryScreen
 import com.example.geobeacon.ui.MainScreen
 import com.example.geobeacon.ui.theme.GeoBeaconTheme
@@ -73,24 +72,8 @@ fun MainApp() {
             startDestination = Screens.Chat.screen.route,
             modifier = Modifier.padding(padding)
         ) {
-            navigation(
-                route = "history_route",
-                startDestination = Screens.History.screen.route,
-            ) {
-                composable(Screens.History.screen.route) {
-                    HistoryScreen(clickedDetail = { id ->
-                        navController.navigate(Screens.History.screen.route + "/$id")
-                    })
-                }
-                composable(
-                    route = Screens.HistoryDetail.screen.route,
-                    arguments = listOf(navArgument("conversationId") { type = NavType.LongType })
-                ) {
-                    val conversationId = it.arguments?.getLong("conversationId") ?: return@composable
-                    HistoryDetailScreen(conversationId, onBack = {
-                        navController.popBackStack() }
-                    )
-                }
+            composable(Screens.History.screen.route) {
+                HistoryScreen()
             }
             composable(Screens.Chat.screen.route) {
                 MainScreen()
