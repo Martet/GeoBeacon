@@ -30,9 +30,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Done
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -50,6 +53,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -60,6 +64,7 @@ import com.example.geobeacon.GeoBeaconApp
 import com.example.geobeacon.R
 import com.example.geobeacon.data.AnswerStatus
 import com.example.geobeacon.data.MessageData
+import kotlinx.coroutines.delay
 import java.util.UUID
 
 private val SERVICE_UUID: UUID = UUID.fromString("01ff0100-ba5e-f4ee-5ca1-eb1e5e4b1ce0")
@@ -71,19 +76,23 @@ fun MainScreen() {
     var connectedDevice by remember {
         mutableStateOf<BluetoothDevice?>(null)
     }
+    var waitDisconnected by remember {
+        mutableStateOf(false)
+    }
 
     AnimatedContent(
         targetState = connectedDevice,
         label = "Selected device",
     ) { device ->
         if (device == null) {
-            // Scans for BT devices and handles clicks (see FindDeviceSample)
-            ScanningScreen {
+            ScanningScreen(waitDisconnected) {
+                waitDisconnected = false
                 connectedDevice = it
             }
         } else {
             // Once a device is selected show the UI and try to connect device
             ChatScreen (device = device) {
+                waitDisconnected = true
                 connectedDevice = null
             }
         }
@@ -93,6 +102,7 @@ fun MainScreen() {
 @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
 @Composable
 fun ScanningScreen(
+    wait: Boolean,
     onConnect: (BluetoothDevice) -> Unit
 ) {
     val tag = "GeoBeacon"
@@ -101,21 +111,32 @@ fun ScanningScreen(
         .setScanMode(ScanSettings.SCAN_MODE_LOW_POWER)
         .build()
 
-    BluetoothScanEffect(
-        scanSettings = scanSettings,
-        onScanFailed = {
-            Log.d(tag, "Scan failed with error code $it")
-        },
-        onDeviceFound = { scanResult ->
-            val scanRecord = scanResult.scanRecord
-            if (scanRecord != null) {
-                Log.d(tag, "Device found: ${scanRecord.deviceName}")
-                if (scanRecord.deviceName == "NXP_WU") {
-                    onConnect(scanResult.device)
+    var scanning by remember { mutableStateOf(!wait) }
+
+    if (wait) {
+        LaunchedEffect(Unit) {
+            delay(1000)
+            scanning = true
+        }
+    }
+
+    if (scanning) {
+        BluetoothScanEffect(
+            scanSettings = scanSettings,
+            onScanFailed = {
+                Log.d(tag, "Scan failed with error code $it")
+            },
+            onDeviceFound = { scanResult ->
+                val scanRecord = scanResult.scanRecord
+                if (scanRecord != null) {
+                    Log.d(tag, "Device found: ${scanRecord.deviceName}")
+                    if (scanRecord.deviceName == "NXP_WU") {
+                        onConnect(scanResult.device)
+                    }
                 }
-            }
-        },
-    )
+            },
+        )
+    }
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -151,7 +172,7 @@ fun ChatScreen(device: BluetoothDevice, onDisconnect: () -> Unit) {
         mutableStateOf(service?.getCharacteristic(CHARACTERISTIC_UUID))
     }
 
-    val messages by viewModel.messages.collectAsState()
+    val conversation by viewModel.conversation.collectAsState()
 
     // This effect will handle the connection and notify when the state changes
     BLEConnectEffect(device = device, onStateChange = {state = it}) {
@@ -161,15 +182,22 @@ fun ChatScreen(device: BluetoothDevice, onDisconnect: () -> Unit) {
             context.getString(R.string.protocol_wrong) -> viewModel.updateLastAnswer(AnswerStatus.ANSWER_WRONG)
             context.getString(R.string.protocol_correct) -> viewModel.updateLastAnswer(AnswerStatus.ANSWER_CORRECT)
             context.getString(R.string.protocol_end) -> viewModel.finishConversation()
-            else -> viewModel.addMessage(MessageData(trimmedMessage, emptyList()))
+            else -> viewModel.addMessage(trimmedMessage)
         }
+    }
+
+    fun disconnect() {
+        state?.gatt?.disconnect()
+        state = DeviceConnectionState.None
+        viewModel.resetConversation()
+        onDisconnect()
     }
 
     val listState = rememberLazyListState()
 
     Column {
         TopAppBar(title = { Text(device.name) }, expandedHeight = 24.dp)
-        if (messages.isEmpty()) {
+        if (conversation.messages.isEmpty()) {
             Row(
                 horizontalArrangement = Arrangement.Center,
                 modifier = Modifier.fillMaxWidth()
@@ -179,7 +207,8 @@ fun ChatScreen(device: BluetoothDevice, onDisconnect: () -> Unit) {
         } else {
             val enableAnswer = state?.gatt != null &&
                 state?.connectionState == BluetoothProfile.STATE_CONNECTED &&
-                characteristic != null
+                characteristic != null &&
+                !conversation.finished
 
             LazyColumn(
                 modifier = Modifier.padding(16.dp),
@@ -187,22 +216,49 @@ fun ChatScreen(device: BluetoothDevice, onDisconnect: () -> Unit) {
                 state = listState,
             ) {
                 items(
-                    count = messages.size,
-                    key = { messages[it].id }
+                    count = conversation.messages.size,
+                    key = { conversation.messages[it].id }
                 ) { i ->
                     ChatMessage(
-                        message = messages[i],
+                        message = conversation.messages[i],
                         enableAnswer = enableAnswer,
-                        onAnswer = { answer ->
+                        onAnswer = { answer: String ->
                             sendData(state?.gatt!!, characteristic!!, answer.trim() + "\n")
-                            viewModel.addAnswer(answer)
+                            if (conversation.messages[i].closedQuestion) {
+                                viewModel.updateLastAnswer(AnswerStatus.ANSWER_PENDING, answer.toInt() - 1)
+                            } else {
+                                viewModel.addAnswer(answer)
+                            }
                         }
                     )
                 }
+                if (conversation.finished) {
+                    item {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Icon(Icons.Default.Done, contentDescription = "Done")
+                            Row(
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.chat_finished),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(16.dp))
+                            TextButton(
+                                onClick = { disconnect() }
+                            ) {
+                                Text(stringResource(R.string.disconnect))
+                            }
+                        }
+                    }
+                }
                 item {
-                    LaunchedEffect(key1 = messages) {
-                        if (messages.isNotEmpty()) {
-                            listState.animateScrollToItem(messages.lastIndex)
+                    LaunchedEffect(key1 = conversation.messages.last()) {
+                        if (conversation.messages.isNotEmpty()) {
+                            listState.animateScrollToItem(conversation.messages.lastIndex)
                         }
                     }
                 }
@@ -211,7 +267,11 @@ fun ChatScreen(device: BluetoothDevice, onDisconnect: () -> Unit) {
     }
 
     BackHandler(enabled = true) {
-        showConfirmationDialog = true
+        if (conversation.finished) {
+            disconnect()
+        } else {
+            showConfirmationDialog = true
+        }
     }
 
     if (showConfirmationDialog) {
@@ -222,7 +282,7 @@ fun ChatScreen(device: BluetoothDevice, onDisconnect: () -> Unit) {
             confirmButton = {
                 TextButton(onClick = {
                     showConfirmationDialog = false
-                    onDisconnect()
+                    disconnect()
                 }) {
                     Text(stringResource(R.string.yes))
                 }
@@ -306,9 +366,7 @@ private fun sendData(
         )
     } else {
         characteristic.writeType = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
-        @Suppress("DEPRECATION")
         characteristic.value = data.toByteArray()
-        @Suppress("DEPRECATION")
         gatt.writeCharacteristic(characteristic)
     }
 }

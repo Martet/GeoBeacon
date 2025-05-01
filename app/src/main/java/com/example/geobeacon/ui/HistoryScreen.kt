@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -58,10 +59,13 @@ fun HistoryScreen() {
     val conversations: List<ConversationData> by viewModel.conversations.collectAsState()
     val selectedConversation by viewModel.conversation.collectAsState()
 
+    val listState = rememberLazyListState()
+
     AnimatedContent(targetState = selectedConversation, label = "Selected conversation") { conversation ->
         if (conversation == null) {
             ConversationList(
                 conversations = conversations,
+                listState = listState,
                 clickedDetail = { viewModel.loadConversation(it) },
                 onRefresh = { viewModel.loadConversations() }
             )
@@ -70,14 +74,15 @@ fun HistoryScreen() {
                 conversation = conversation,
                 onDelete = { viewModel.deleteConversation(conversation.id) },
                 onBack = { viewModel.setConversation(null) },
-                onRefresh = { viewModel.loadConversation(conversation.id) })
+                onRefresh = { viewModel.loadConversation(conversation.id) }
+            )
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ConversationList(conversations: List<ConversationData>, clickedDetail: (Long) -> Unit, onRefresh: () -> Unit) {
+fun ConversationList(conversations: List<ConversationData>, listState: LazyListState, clickedDetail: (Long) -> Unit, onRefresh: () -> Unit) {
     val coroutineScope = rememberCoroutineScope()
     val dateFormatter = remember { DateFormat.getDateInstance(DateFormat.SHORT) }
     val timeFormatter = remember { DateFormat.getTimeInstance(DateFormat.SHORT) }
@@ -104,7 +109,7 @@ fun ConversationList(conversations: List<ConversationData>, clickedDetail: (Long
             LazyColumn(
                 modifier = Modifier.padding(16.dp).fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
-                state = rememberLazyListState(),
+                state = listState,
             ) {
                 items(conversations.size) { i ->
                     ConversationItem(
@@ -162,8 +167,8 @@ fun ConversationItem(
 fun ConversationDetail(conversation: ConversationData, onDelete: () -> Unit, onBack: () -> Unit, onRefresh: () -> Unit) {
     val coroutineScope = rememberCoroutineScope()
     var showConfirmationDialog by remember { mutableStateOf(false) }
-
     var refreshing by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
 
     Column {
         TopAppBar(
@@ -202,7 +207,7 @@ fun ConversationDetail(conversation: ConversationData, onDelete: () -> Unit, onB
             LazyColumn(
                 modifier = Modifier.padding(16.dp).fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
-                state = rememberLazyListState()
+                state = listState
             ) {
                 items(conversation.messages.size) { i ->
                     ChatMessage(

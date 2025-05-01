@@ -24,4 +24,6 @@
     <string name="settings_dark_mode">Dark mode</string>
     <string name="dialog">Dialog</string>
     <string name="config">Configuration</string>
+    <string name="chat_finished">Congratulations!\nYou are at the end of the conversation.</string>
+    <string name="disconnect">Disconnect</string>
 </resources>

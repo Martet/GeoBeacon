@@ -30,6 +30,7 @@ data class MessageEntity(
     @ColumnInfo(name = "conversation_id") val conversationId: Long,
     @ColumnInfo(name = "text") val text: String,
     @ColumnInfo(name = "timestamp") val timestamp: Long,
+    @ColumnInfo(name = "is_closed_question") val isClosedQuestion: Boolean = false
 )
 
 @Entity(

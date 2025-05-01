@@ -1,17 +1,25 @@
 package com.example.geobeacon.ui
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -36,55 +44,60 @@ import com.example.geobeacon.data.MessageData
 fun ChatMessage(message: MessageData, enableAnswer: Boolean, onAnswer: (String) -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = message.question,
+            text = if (message.closedQuestion) message.question.split("\n")[0] else message.question,
             style = MaterialTheme.typography.headlineSmall,
             modifier = Modifier.padding(16.dp)
         )
-        for (answer in message.answers) {
-            ChatAnswer(answer)
-        }
-        if (message.last) {
-            val textField = rememberSaveable {
-                mutableStateOf("")
+        if (message.closedQuestion) {
+            ChatAnswerButtons(message.answers, enableAnswer = enableAnswer && message.last, onAnswer)
+        } else {
+            for (answer in message.answers) {
+                ChatAnswer(answer)
             }
-            val focusManager = LocalFocusManager.current
-            fun onSubmit() {
-                onAnswer(textField.value)
-                textField.value = ""
-                focusManager.clearFocus()
-            }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(all = 16.dp),
-            ) {
-                OutlinedTextField(
-                    value = textField.value,
-                    onValueChange = { textField.value = it },
-                    keyboardActions = KeyboardActions(onDone = { onSubmit() }),
-                    singleLine = true,
-                    placeholder = { Text(stringResource(R.string.type_answer)) },
-                    shape = MaterialTheme.shapes.medium,
-                    enabled = enableAnswer,
-                    modifier = Modifier
-                        .fillMaxWidth(0.9f)
-                        .padding(end = 8.dp)
-                )
-                IconButton(
-                    enabled = enableAnswer && textField.value.isNotEmpty(),
-                    onClick = { onSubmit() },
-                    modifier = Modifier.size(32.dp)
-                ){
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Send,
-                        contentDescription = null,
-                        tint = if(enableAnswer) Color.Blue else Color.Gray
-                    )
+
+            if (message.last) {
+                val textField = rememberSaveable {
+                    mutableStateOf("")
                 }
+                val focusManager = LocalFocusManager.current
+                fun onSubmit() {
+                    onAnswer(textField.value)
+                    textField.value = ""
+                    focusManager.clearFocus()
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(all = 16.dp),
+                ) {
+                    OutlinedTextField(
+                        value = textField.value,
+                        onValueChange = { textField.value = it },
+                        keyboardActions = KeyboardActions(onDone = { onSubmit() }),
+                        singleLine = true,
+                        placeholder = { Text(stringResource(R.string.type_answer)) },
+                        shape = MaterialTheme.shapes.medium,
+                        enabled = enableAnswer,
+                        modifier = Modifier
+                            .fillMaxWidth(0.9f)
+                            .padding(end = 8.dp)
+                    )
+                    IconButton(
+                        enabled = enableAnswer && textField.value.isNotEmpty(),
+                        onClick = { onSubmit() },
+                        modifier = Modifier.size(32.dp)
+                    ){
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            contentDescription = null,
+                            tint = if(enableAnswer) Color.Blue else Color.Gray
+                        )
+                    }
+                }
+            } else if (message.answers.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(16.dp))
             }
-        } else if (message.answers.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
@@ -99,12 +112,12 @@ fun ChatAnswer(answer: MessageAnswer) {
             imageVector = when (answer.status) {
                 AnswerStatus.ANSWER_CORRECT -> Icons.Default.Check
                 AnswerStatus.ANSWER_WRONG -> Icons.Default.Close
-                AnswerStatus.ANSWER_PENDING -> Icons.Default.Refresh
+                else -> Icons.Default.Refresh
             },
             tint = when (answer.status) {
                 AnswerStatus.ANSWER_CORRECT -> Color.Green
                 AnswerStatus.ANSWER_WRONG -> Color.Red
-                AnswerStatus.ANSWER_PENDING -> Color.Blue
+                else -> Color.Blue
             },
             contentDescription = null,
             modifier = Modifier
@@ -112,5 +125,36 @@ fun ChatAnswer(answer: MessageAnswer) {
                 .padding(end = 8.dp)
         )
         Text(answer.text)
+    }
+}
+
+@Composable
+fun ChatAnswerButtons(answers: List<MessageAnswer>, enableAnswer: Boolean, onClick: (String) -> Unit) {
+    Column {
+        answers.chunked(2).forEach { row ->
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                row.forEach { answer ->
+                    Button(
+                        enabled = enableAnswer && answer.status == AnswerStatus.ANSWER_UNANSWERED,
+                        onClick = { onClick((answers.indexOf(answer) + 1).toString()) },
+                        border = BorderStroke(width = 2.dp, color = when (answer.status) {
+                            AnswerStatus.ANSWER_CORRECT -> Color.Green
+                            AnswerStatus.ANSWER_WRONG -> Color.Red
+                            AnswerStatus.ANSWER_PENDING -> Color.Blue
+                            AnswerStatus.ANSWER_UNANSWERED -> Color.DarkGray
+                        }),
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(vertical = 4.dp)
+                    ) {
+                        Text(answer.text)
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
     }
 }
