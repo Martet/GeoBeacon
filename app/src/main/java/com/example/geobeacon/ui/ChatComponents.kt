@@ -9,9 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
@@ -25,27 +22,33 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.ShapeDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.geobeacon.R
 import com.example.geobeacon.data.AnswerStatus
 import com.example.geobeacon.data.MessageAnswer
 import com.example.geobeacon.data.MessageData
+import com.example.geobeacon.ui.theme.GeoBeaconTheme
 
 @Composable
 fun ChatMessage(message: MessageData, enableAnswer: Boolean, onAnswer: (String) -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = if (message.closedQuestion) message.question.split("\n")[0] else message.question,
-            style = MaterialTheme.typography.headlineSmall,
+            style = MaterialTheme.typography.headlineMedium,
             modifier = Modifier.padding(16.dp)
         )
         if (message.closedQuestion) {
@@ -137,24 +140,87 @@ fun ChatAnswerButtons(answers: List<MessageAnswer>, enableAnswer: Boolean, onCli
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 row.forEach { answer ->
+                    val enabled = enableAnswer && answer.status == AnswerStatus.ANSWER_UNANSWERED
                     Button(
-                        enabled = enableAnswer && answer.status == AnswerStatus.ANSWER_UNANSWERED,
+                        enabled = enabled,
                         onClick = { onClick((answers.indexOf(answer) + 1).toString()) },
-                        border = BorderStroke(width = 2.dp, color = when (answer.status) {
-                            AnswerStatus.ANSWER_CORRECT -> Color.Green
-                            AnswerStatus.ANSWER_WRONG -> Color.Red
-                            AnswerStatus.ANSWER_PENDING -> Color.Blue
-                            AnswerStatus.ANSWER_UNANSWERED -> Color.DarkGray
-                        }),
+                        border = BorderStroke(
+                            width = 2.dp,
+                            color = when (answer.status) {
+                                AnswerStatus.ANSWER_CORRECT -> Color.Green
+                                AnswerStatus.ANSWER_WRONG -> Color.Red
+                                AnswerStatus.ANSWER_PENDING -> Color.Blue
+                                AnswerStatus.ANSWER_UNANSWERED -> Color.DarkGray
+                            }
+                        ),
+                        shape = ShapeDefaults.Medium,
+                        /*colors = ButtonColors(
+                            containerColor = Color.LightGray,
+                            contentColor = Color.Black,
+                            disabledContentColor = if (answer.status == AnswerStatus.ANSWER_CORRECT) Color.Black else Color.DarkGray,
+                            disabledContainerColor = if (answer.status == AnswerStatus.ANSWER_CORRECT) Color.LightGray else Color.Gray
+                        ),*/
+                        elevation = ButtonDefaults.buttonElevation(
+                            defaultElevation = 8.dp,
+                            pressedElevation = 0.dp,
+                            focusedElevation = 12.dp,
+                            hoveredElevation = 12.dp,
+                            disabledElevation = 0.dp
+                        ),
                         modifier = Modifier
                             .weight(1f)
-                            .padding(vertical = 4.dp)
+                            //.padding(vertical = 4.dp)
                     ) {
-                        Text(answer.text)
+                        Text(
+                            answer.text,
+                            style = MaterialTheme.typography.bodyLarge,
+                            //color = if (enabled) Color.Black else Color.DarkGray
+                        )
                     }
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
         }
+    }
+}
+
+@Preview
+@Composable
+private fun ChatMessagePreview() {
+    var answer by remember {
+        mutableStateOf("")
+    }
+
+    var anoStatus by remember {
+        mutableStateOf(AnswerStatus.ANSWER_UNANSWERED)
+    }
+    var neStatus by remember {
+        mutableStateOf(AnswerStatus.ANSWER_UNANSWERED)
+    }
+    var moznaStatus by remember {
+        mutableStateOf(AnswerStatus.ANSWER_UNANSWERED)
+    }
+
+    when (answer) {
+        "1" -> anoStatus = AnswerStatus.ANSWER_CORRECT
+        "2" -> neStatus = AnswerStatus.ANSWER_WRONG
+        "3" -> moznaStatus = AnswerStatus.ANSWER_PENDING
+    }
+
+    GeoBeaconTheme(darkTheme = false, dynamicColor = false) {
+        ChatMessage(
+            message = MessageData(
+                question = "Je voda mokra?\n1) Ano\n2) ne\n3) Mozna",
+                answers = listOf(
+                    MessageAnswer(text = "Ano", status = anoStatus),
+                    MessageAnswer("ne", neStatus),
+                    MessageAnswer("Mozna", moznaStatus)
+                ),
+                closedQuestion = true,
+                last = true
+            ),
+            enableAnswer = true,
+            onAnswer = { answer = it }
+        )
     }
 }

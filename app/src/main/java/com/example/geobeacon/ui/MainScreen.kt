@@ -32,10 +32,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -48,6 +50,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,7 +66,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.geobeacon.GeoBeaconApp
 import com.example.geobeacon.R
 import com.example.geobeacon.data.AnswerStatus
-import com.example.geobeacon.data.MessageData
 import kotlinx.coroutines.delay
 import java.util.UUID
 
@@ -73,11 +75,8 @@ private val CHARACTERISTIC_UUID: UUID = UUID.fromString("01ff0101-ba5e-f4ee-5ca1
 @SuppressLint("MissingPermission")
 @Composable
 fun MainScreen() {
-    var connectedDevice by remember {
+    var connectedDevice by rememberSaveable {
         mutableStateOf<BluetoothDevice?>(null)
-    }
-    var waitDisconnected by remember {
-        mutableStateOf(false)
     }
 
     AnimatedContent(
@@ -85,14 +84,11 @@ fun MainScreen() {
         label = "Selected device",
     ) { device ->
         if (device == null) {
-            ScanningScreen(waitDisconnected) {
-                waitDisconnected = false
+            ScanningScreen {
                 connectedDevice = it
             }
         } else {
-            // Once a device is selected show the UI and try to connect device
-            ChatScreen (device = device) {
-                waitDisconnected = true
+            ChatScreen(device = device) {
                 connectedDevice = null
             }
         }
@@ -102,7 +98,6 @@ fun MainScreen() {
 @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
 @Composable
 fun ScanningScreen(
-    wait: Boolean,
     onConnect: (BluetoothDevice) -> Unit
 ) {
     val tag = "GeoBeacon"
@@ -111,13 +106,11 @@ fun ScanningScreen(
         .setScanMode(ScanSettings.SCAN_MODE_LOW_POWER)
         .build()
 
-    var scanning by remember { mutableStateOf(!wait) }
+    var scanning by remember { mutableStateOf(false) }
 
-    if (wait) {
-        LaunchedEffect(Unit) {
-            delay(1000)
-            scanning = true
-        }
+    LaunchedEffect(Unit) {
+        delay(1000)
+        scanning = true
     }
 
     if (scanning) {
@@ -157,37 +150,18 @@ fun ChatScreen(device: BluetoothDevice, onDisconnect: () -> Unit) {
     val application = context.applicationContext as GeoBeaconApp
     val viewModel: ChatViewModel = viewModel(factory = ChatViewModel.Factory(application.chatRepository))
     viewModel.setAddressName(device.address, device.name)
-
     var showConfirmationDialog by remember { mutableStateOf(false) }
-    // Keeps track of the last connection state with the device
+
     var state by remember(device) {
-        mutableStateOf<DeviceConnectionState?>(null)
+        mutableStateOf(DeviceConnectionState.None)
     }
-    // Once the device services are discovered find the GATTServerSample service
-    val service by remember(state?.services) {
-        mutableStateOf(state?.services?.find { it.uuid == SERVICE_UUID })
-    }
-    // If the GATTServerSample service is found, get the characteristic
-    val characteristic by remember(service) {
-        mutableStateOf(service?.getCharacteristic(CHARACTERISTIC_UUID))
+    var characteristic by remember(state.services) {
+        mutableStateOf(state.services.find { it.uuid == SERVICE_UUID }?.getCharacteristic(CHARACTERISTIC_UUID))
     }
 
     val conversation by viewModel.conversation.collectAsState()
 
-    // This effect will handle the connection and notify when the state changes
-    BLEConnectEffect(device = device, onStateChange = {state = it}) {
-        val trimmedMessage = it.trim()
-        Log.d("GeoBeacon", "Message received: $trimmedMessage")
-        when (trimmedMessage) {
-            context.getString(R.string.protocol_wrong) -> viewModel.updateLastAnswer(AnswerStatus.ANSWER_WRONG)
-            context.getString(R.string.protocol_correct) -> viewModel.updateLastAnswer(AnswerStatus.ANSWER_CORRECT)
-            context.getString(R.string.protocol_end) -> viewModel.finishConversation()
-            else -> viewModel.addMessage(trimmedMessage)
-        }
-    }
-
     fun disconnect() {
-        state?.gatt?.disconnect()
         state = DeviceConnectionState.None
         viewModel.resetConversation()
         onDisconnect()
@@ -195,8 +169,62 @@ fun ChatScreen(device: BluetoothDevice, onDisconnect: () -> Unit) {
 
     val listState = rememberLazyListState()
 
+    val enableAnswer by remember(keys = arrayOf(state.gatt, state.connectionState, characteristic, conversation.finished), calculation = {
+        val new = state.gatt != null && characteristic != null &&
+                state.connectionState == BluetoothProfile.STATE_CONNECTED &&
+                !conversation.finished
+        Log.d("GeoBeacon", "Answering enabled: gatt=${state.gatt != null}, connectionState=${state.connectionState}, characteristic=${characteristic != null}")
+        mutableStateOf(new)
+    })
+
+    var enableReconnect by remember(enableAnswer) {
+        mutableStateOf(false)
+    }
+    var reconnect by remember {
+        mutableStateOf(false)
+    }
+
+    LaunchedEffect(enableAnswer) {
+        if (!enableAnswer) {
+            delay(1000)
+            state.gatt?.discoverServices()
+            delay(1000)
+            enableReconnect = true
+        }
+    }
+
+    if (!conversation.finished) {
+        BLEConnectEffect(device = device, reconnect = reconnect, startState = state, onStateChange = {state = it}) {
+            val trimmedMessage = it.trim()
+            Log.d("GeoBeacon", "Message received: $trimmedMessage")
+            when (trimmedMessage) {
+                context.getString(R.string.protocol_wrong) -> viewModel.updateLastAnswer(AnswerStatus.ANSWER_WRONG)
+                context.getString(R.string.protocol_correct) -> viewModel.updateLastAnswer(AnswerStatus.ANSWER_CORRECT)
+                context.getString(R.string.protocol_end) -> viewModel.finishConversation()
+                else -> viewModel.addMessage(trimmedMessage)
+            }
+        }
+    }
+
+    LaunchedEffect(key1 = conversation.messages.size, key2 = conversation.messages.lastOrNull()?.answers?.size, key3 = conversation.finished) {
+        Log.d("GeoBeacon", "Scrolling down to message index ${conversation.messages.lastIndex}")
+        if (conversation.messages.isNotEmpty()) {
+            listState.animateScrollToItem(conversation.messages.lastIndex, scrollOffset = 5)
+        }
+    }
+
     Column {
-        TopAppBar(title = { Text(device.name) }, expandedHeight = 24.dp)
+        TopAppBar(
+            title = { Text(device.name) },
+            expandedHeight = 24.dp,
+            actions = {
+                if (enableReconnect) {
+                    IconButton(onClick = { reconnect = !reconnect }) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Reconnect")
+                    }
+                }
+            }
+        )
         if (conversation.messages.isEmpty()) {
             Row(
                 horizontalArrangement = Arrangement.Center,
@@ -205,11 +233,6 @@ fun ChatScreen(device: BluetoothDevice, onDisconnect: () -> Unit) {
                 CircularProgressIndicator(modifier = Modifier.padding(all = 16.dp))
             }
         } else {
-            val enableAnswer = state?.gatt != null &&
-                state?.connectionState == BluetoothProfile.STATE_CONNECTED &&
-                characteristic != null &&
-                !conversation.finished
-
             LazyColumn(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -223,7 +246,7 @@ fun ChatScreen(device: BluetoothDevice, onDisconnect: () -> Unit) {
                         message = conversation.messages[i],
                         enableAnswer = enableAnswer,
                         onAnswer = { answer: String ->
-                            sendData(state?.gatt!!, characteristic!!, answer.trim() + "\n")
+                            sendData(state.gatt!!, characteristic!!, answer.trim() + "\n")
                             if (conversation.messages[i].closedQuestion) {
                                 viewModel.updateLastAnswer(AnswerStatus.ANSWER_PENDING, answer.toInt() - 1)
                             } else {
@@ -246,19 +269,12 @@ fun ChatScreen(device: BluetoothDevice, onDisconnect: () -> Unit) {
                                     textAlign = TextAlign.Center
                                 )
                             }
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
                             TextButton(
                                 onClick = { disconnect() }
                             ) {
                                 Text(stringResource(R.string.disconnect))
                             }
-                        }
-                    }
-                }
-                item {
-                    LaunchedEffect(key1 = conversation.messages.last()) {
-                        if (conversation.messages.isNotEmpty()) {
-                            listState.animateScrollToItem(conversation.messages.lastIndex)
                         }
                     }
                 }
@@ -366,7 +382,9 @@ private fun sendData(
         )
     } else {
         characteristic.writeType = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
+        @Suppress("DEPRECATION")
         characteristic.value = data.toByteArray()
+        @Suppress("DEPRECATION")
         gatt.writeCharacteristic(characteristic)
     }
 }
@@ -385,6 +403,8 @@ private data class DeviceConnectionState(
 @Composable
 private fun BLEConnectEffect(
     device: BluetoothDevice,
+    startState: DeviceConnectionState = DeviceConnectionState.None,
+    reconnect: Boolean = false,
     lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current,
     onStateChange: (DeviceConnectionState) -> Unit,
     onMessageReceived: (String) -> Unit = {},
@@ -403,13 +423,16 @@ private fun BLEConnectEffect(
 
     // Keep the current connection state
     var state by remember {
-        mutableStateOf(DeviceConnectionState.None)
+        mutableStateOf(startState)
     }
     var gattServer: BluetoothGattServer? by remember {
         mutableStateOf(null)
     }
+    var disconnected by remember {
+        mutableStateOf(false)
+    }
 
-    DisposableEffect(lifecycleOwner, device) {
+    DisposableEffect(lifecycleOwner, device.address, reconnect) {
         // This callback will notify us when things change in the GATT connection so we can update
         // our state
         val gattCallback = object : BluetoothGattCallback() {
@@ -426,14 +449,22 @@ private fun BLEConnectEffect(
                 if (status != BluetoothGatt.GATT_SUCCESS) {
                     Log.e("BLEConnectEffect", "An error happened: $status")
                 }
-                else if (newState == BluetoothProfile.STATE_CONNECTED) {
-                    gatt.requestMtu(512)
-                    gatt.discoverServices()
+                when (newState) {
+                    BluetoothProfile.STATE_CONNECTED -> {
+                        gatt.requestMtu(512)
+                        gatt.discoverServices()
+                    }
+                    BluetoothProfile.STATE_DISCONNECTED -> {
+                        if (!disconnected) {
+                            gatt.connect()
+                        }
+                    }
                 }
             }
 
             override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
                 super.onServicesDiscovered(gatt, status)
+                Log.d("BLEConnectEffect", "onServicesDiscovered")
                 state = state.copy(services = gatt.services)
                 currentOnStateChange(state)
             }
@@ -465,6 +496,7 @@ private fun BLEConnectEffect(
         }
 
         val observer = LifecycleEventObserver { _, event ->
+            Log.d("BLEConnectEffect", "Lifecycle event: $event")
             if (event == Lifecycle.Event.ON_START) {
                 if (gattServer == null) {
                     gattServer = bluetoothManager.openGattServer(context, gattServerCallback)
@@ -476,13 +508,16 @@ private fun BLEConnectEffect(
                     state.gatt?.connect()
                 } else {
                     // Otherwise create a new GATT connection
-                    state = state.copy(gatt = device.connectGatt(context, true, gattCallback))
+                    state = DeviceConnectionState(
+                        gatt = device.connectGatt(context, true, gattCallback),
+                        connectionState = BluetoothProfile.STATE_DISCONNECTED
+                    )
                 }
+                disconnected = false
             } else if (event == Lifecycle.Event.ON_STOP) {
                 // Unless you have a reason to keep connected while in the bg you should disconnect
                 state.gatt?.disconnect()
-                gattServer?.close()
-                gattServer = null
+                disconnected = true
             }
         }
 
@@ -491,10 +526,14 @@ private fun BLEConnectEffect(
 
         // When the effect leaves the Composition, remove the observer and close the connection
         onDispose {
+            Log.d("BLEConnectEffect", "onDispose")
             lifecycleOwner.lifecycle.removeObserver(observer)
             state.gatt?.close()
             state = DeviceConnectionState.None
+            currentOnStateChange(state)
             gattServer?.close()
+            gattServer = null
+            disconnected = true
         }
     }
 }

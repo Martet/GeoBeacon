@@ -15,32 +15,34 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
 class ChatViewModel(private val repository: ChatRepository) : ViewModel() {
     private val _conversation = MutableStateFlow<ConversationData>(ConversationData())
     val conversation: StateFlow<ConversationData> = _conversation.asStateFlow()
     private var _lastQuestion = MutableStateFlow<MessageData>(MessageData())
 
-    private val _mutex = Mutex()
+    private val _semaphore = Semaphore(1)
     private var _address = ""
     private var _lastAnswerNum = 0
 
 
     init {
-        loadMessages()
+        viewModelScope.launch {
+            loadMessages()
+        }
     }
 
     fun setAddressName(address: String, name: String) {
         _address = address
         _conversation.value = _conversation.value.copy(name = name)
-        loadMessages()
-        if (_lastQuestion.value.closedQuestion) {
-            for (answer in _lastQuestion.value.answers) {
-                if (answer.status == AnswerStatus.ANSWER_PENDING) {
-                    viewModelScope.launch {
-                        _mutex.withLock {
+        viewModelScope.launch {
+            _semaphore.withPermit {
+                loadMessages()
+                if (_lastQuestion.value.closedQuestion) {
+                    for (answer in _lastQuestion.value.answers) {
+                        if (answer.status == AnswerStatus.ANSWER_PENDING) {
                             repository.updateAnswer(
                                 answer.copy(status = AnswerStatus.ANSWER_UNANSWERED),
                                 _lastQuestion.value.id
@@ -54,7 +56,7 @@ class ChatViewModel(private val repository: ChatRepository) : ViewModel() {
 
     fun addMessage(message: String) {
         viewModelScope.launch {
-            _mutex.withLock {
+            _semaphore.withPermit {
                 try {
                     if (_conversation.value.messages.lastOrNull()?.question != message) {
                         val splitQuestion = message.split("\n")
@@ -87,7 +89,7 @@ class ChatViewModel(private val repository: ChatRepository) : ViewModel() {
 
     fun addAnswer(answer: String) {
         viewModelScope.launch {
-            _mutex.withLock {
+            _semaphore.withPermit {
                 try {
                     val newAnswer = MessageAnswer(answer, AnswerStatus.ANSWER_PENDING)
                     repository.insertAnswer(newAnswer, _lastQuestion.value.id)
@@ -101,7 +103,7 @@ class ChatViewModel(private val repository: ChatRepository) : ViewModel() {
 
     fun updateLastAnswer(newState: AnswerStatus, answerNum: Int = -1) {
         viewModelScope.launch {
-            _mutex.withLock {
+            _semaphore.withPermit {
                 try {
                     Log.d("GeoBeacon", "Updating last answer to $newState")
                     if (answerNum > -1) {
@@ -126,7 +128,7 @@ class ChatViewModel(private val repository: ChatRepository) : ViewModel() {
 
     fun finishConversation() {
         viewModelScope.launch {
-            _mutex.withLock {
+            _semaphore.withPermit {
                 try {
                     _conversation.value = _conversation.value.copy(finished = true)
                     repository.finishConversation(_conversation.value.id)
@@ -146,29 +148,24 @@ class ChatViewModel(private val repository: ChatRepository) : ViewModel() {
         }
     }
 
-    private fun loadMessages() {
-        viewModelScope.launch {
-            _mutex.withLock {
-                try {
-                    val loadedConversation = if (!_conversation.value.finished) {
-                        repository.getLastConversation(_address, _conversation.value.name)
-                    } else {
-                        repository.getConversation(_conversation.value.id)
-                    }
-                    _conversation.value = loadedConversation
-                    Log.d("GeoBeacon", "Loaded ${loadedConversation.messages.size} messages")
-
-                    val lastQuestion = loadedConversation.getLastQuestion()
-                    if (lastQuestion != null) {
-                        _lastQuestion.value = lastQuestion
-                    }
-                } catch (e: Exception) {
-                    Log.e("GeoBeacon", "Failed to load messages", e)
-                }
+    private suspend fun loadMessages() {
+        try {
+            val loadedConversation = if (!_conversation.value.finished) {
+                repository.getLastConversation(_address, _conversation.value.name)
+            } else {
+                repository.getConversation(_conversation.value.id)
             }
+            _conversation.value = loadedConversation
+            Log.d("GeoBeacon", "Loaded ${loadedConversation.messages.size} messages")
+
+            val lastQuestion = loadedConversation.getLastQuestion()
+            if (lastQuestion != null) {
+                _lastQuestion.value = lastQuestion
+            }
+        } catch (e: Exception) {
+            Log.e("GeoBeacon", "Failed to load messages", e)
         }
     }
-
 
     companion object {
         fun Factory(repository: ChatRepository): ViewModelProvider.Factory = viewModelFactory {
