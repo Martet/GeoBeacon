@@ -9,6 +9,7 @@ import androidx.room.Query
 import androidx.room.Relation
 import androidx.room.Transaction
 import androidx.room.Update
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ChatDao {
@@ -17,10 +18,13 @@ interface ChatDao {
     suspend fun getLastActiveConversation(address: String): ConversationWithMessagesAndAnswers?
 
     @Query("SELECT * FROM conversations")
-    suspend fun getConversations(): List<ConversationEntity>
+    fun getConversationsFlow(): Flow<List<ConversationEntity>>
 
     @Query("SELECT * FROM conversations WHERE id = :id")
     suspend fun getConversation(id: Long): ConversationWithMessagesAndAnswers?
+
+    @Query("SELECT * FROM conversations WHERE id = :id")
+    fun getConversationFlow(id: Long): Flow<ConversationWithMessagesAndAnswers?>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertConversation(conversation: ConversationEntity): Long

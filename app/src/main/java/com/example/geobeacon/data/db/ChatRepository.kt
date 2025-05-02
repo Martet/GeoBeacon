@@ -4,8 +4,8 @@ import com.example.geobeacon.data.AnswerStatus
 import com.example.geobeacon.data.ConversationData
 import com.example.geobeacon.data.MessageAnswer
 import com.example.geobeacon.data.MessageData
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import java.util.Date
 
 class ChatRepository(private val dao: ChatDao) {
@@ -33,6 +33,17 @@ class ChatRepository(private val dao: ChatDao) {
         )
     }
 
+    val conversationsFlow: Flow<List<ConversationData>> = dao.getConversationsFlow().map { conversationEntities ->
+        conversationEntities.map { conversationEntity ->
+            ConversationData(
+                name = conversationEntity.name,
+                date = Date(conversationEntity.timestamp),
+                finished = conversationEntity.finished,
+                id = conversationEntity.id
+            )
+        }
+    }
+
     suspend fun getLastConversation(address: String, name: String): ConversationData {
         val conversation = dao.getLastActiveConversation(address)
         if (conversation == null) {
@@ -52,23 +63,22 @@ class ChatRepository(private val dao: ChatDao) {
         return mapConversation(conversation)
     }
 
-    suspend fun getConversations(): List<ConversationData> {
-        return dao.getConversations().map { conversationEntity ->
-            ConversationData(
-                name = conversationEntity.name,
-                date = Date(conversationEntity.timestamp),
-                finished = conversationEntity.finished,
-                id = conversationEntity.id
-            )
-        }
-    }
-
     suspend fun getConversation(id: Long): ConversationData {
         val conversation = dao.getConversation(id)
         if (conversation == null) {
             throw Exception("Conversation not found")
         }
         return mapConversation(conversation)
+    }
+
+    fun getConversationFlow(id: Long): Flow<ConversationData?> {
+        return dao.getConversationFlow(id).map { conversation ->
+            if (conversation == null) {
+                null
+            } else {
+                mapConversation(conversation)
+            }
+        }
     }
 
     suspend fun insertMessage(message: MessageData, address: String) {
