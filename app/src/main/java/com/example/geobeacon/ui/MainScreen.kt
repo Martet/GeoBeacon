@@ -117,6 +117,12 @@ fun ChatScreen(viewModel: ChatViewModel) {
             }
         )
         if (conversation.messages.isEmpty()) {
+            LaunchedEffect(Unit) {
+                delay(5000)
+                if (conversation.messages.isEmpty()) {
+                    enableReconnect = true
+                }
+            }
             Row(
                 horizontalArrangement = Arrangement.Center,
                 modifier = Modifier.fillMaxWidth()

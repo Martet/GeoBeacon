@@ -47,7 +47,7 @@ class BluetoothConnectionManager(private val context: Context) {
     private val bluetoothAdapter = bluetoothManager?.adapter
     private val bluetoothLeScanner = bluetoothAdapter?.bluetoothLeScanner
     private var gatt: BluetoothGatt? = null
-    private var gattServer: BluetoothGattServer? = null
+    var gattServer: BluetoothGattServer? = null
     private val wuartService = BluetoothGattService(WUART_SERVICE_UUID, BluetoothGattService.SERVICE_TYPE_PRIMARY).also {
         it.addCharacteristic(BluetoothGattCharacteristic(
             WUART_CHARACTERISTIC_UUID,
@@ -72,8 +72,11 @@ class BluetoothConnectionManager(private val context: Context) {
         if (!scanning) {
             scanning = true
             CoroutineScope(Dispatchers.IO).launch {
-                if (System.currentTimeMillis() - lastDisconnectTime < 2000) {
-                    delay(2000)
+                if (System.currentTimeMillis() - lastDisconnectTime < 5000) {
+                    delay(5000)
+                }
+                if (gattServer == null) {
+                    startServer()
                 }
                 bluetoothLeScanner?.startScan(scanFilters, scanSettings, scanCallback)
             }
@@ -158,11 +161,14 @@ class BluetoothConnectionManager(private val context: Context) {
                     _gatt.discoverServices()
                 }
                 BluetoothProfile.STATE_DISCONNECTED -> {
-                    _gatt.close()
-                    _ready.value = false
                     CoroutineScope(Dispatchers.IO).launch {
                         delay(500)
-                        gatt = device?.connectGatt(context, false, gattCallback)
+                        if (bluetoothManager.getConnectionState(device, BluetoothProfile.GATT) == BluetoothProfile.STATE_DISCONNECTED) {
+                            _gatt.close()
+                            _ready.value = false
+                            delay(500)
+                            gatt = device?.connectGatt(context, false, gattCallback)
+                        }
                     }
                 }
             }

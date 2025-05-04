@@ -13,6 +13,7 @@ import com.example.geobeacon.data.ConversationData
 import com.example.geobeacon.data.MessageAnswer
 import com.example.geobeacon.data.MessageData
 import com.example.geobeacon.data.db.ChatRepository
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -41,7 +42,7 @@ class ChatViewModel(private val repository: ChatRepository, private val bluetoot
             launch {
                 bluetoothManager.deviceName.collect {
                     _deviceName.value = it
-                    Log.d("GeoBeacon", "Device name: ${deviceName.value}")
+                    Log.d("GeoBeacon", "New device name: ${deviceName.value}")
                     if (it != null && deviceAddress != null) {
                         initConversation()
                     }
@@ -51,7 +52,7 @@ class ChatViewModel(private val repository: ChatRepository, private val bluetoot
             launch {
                 bluetoothManager.deviceAddress.collect {
                     deviceAddress = it
-                    Log.d("GeoBeacon", "Device address: ${deviceAddress}")
+                    Log.d("GeoBeacon", "New device address: $deviceAddress")
                     if (it != null && deviceName.value != null) {
                         initConversation()
                     }
@@ -134,6 +135,7 @@ class ChatViewModel(private val repository: ChatRepository, private val bluetoot
     fun addAnswer(answer: String) {
         viewModelScope.launch {
             try {
+                Log.d("GeoBeacon", "Sending answer: $answer")
                 bluetoothManager.writeCharacteristic(
                     bluetoothManager.WUART_SERVICE_UUID,
                     bluetoothManager.WUART_CHARACTERISTIC_UUID,
@@ -143,8 +145,17 @@ class ChatViewModel(private val repository: ChatRepository, private val bluetoot
                     updateLastAnswer(AnswerStatus.ANSWER_PENDING, answer.toInt() - 1)
                 } else {
                     val newAnswer = MessageAnswer(answer, AnswerStatus.ANSWER_PENDING)
-                    semaphore.withPermit {
-                        repository.insertAnswer(newAnswer, lastQuestion.id)
+                    val answerId = repository.insertAnswer(newAnswer, lastQuestion.id)
+                    val questionId = lastQuestion.id
+                    launch {
+                        delay(5000)
+                        val updated = repository.getAnswer(answerId)
+                        Log.d("GeoBeacon", "Checking answer status of ${updated.text}: ${updated.status}")
+                        if (updated.status == AnswerStatus.ANSWER_PENDING) {
+                            repository.updateAnswer(updated.copy(status = AnswerStatus.ANSWER_UNANSWERED), questionId)
+                            Log.d("GeoBeacon", "Answer status of ${updated.text} is now UNANSWERED")
+                            loadMessages()
+                        }
                     }
                 }
                 loadMessages()
@@ -158,13 +169,14 @@ class ChatViewModel(private val repository: ChatRepository, private val bluetoot
         viewModelScope.launch {
             semaphore.withPermit {
                 try {
-                    Log.d("GeoBeacon", "Updating last answer to $newState")
                     if (answerNum > -1) {
                         lastAnswerNum = answerNum
                     }
                     val toUpdate = if (lastQuestion.closedQuestion) {
+                        Log.d("GeoBeacon", "Updating answer ${lastQuestion.answers[lastAnswerNum].text} of ${lastQuestion.question} to $newState")
                         lastQuestion.answers[lastAnswerNum]
                     } else {
+                        Log.d("GeoBeacon", "Updating answer ${lastQuestion.answers.last().text} of ${lastQuestion.question} to $newState")
                         lastQuestion.answers.last()
                     }
                     repository.updateAnswer(

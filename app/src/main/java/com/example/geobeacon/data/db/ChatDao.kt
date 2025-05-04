@@ -38,6 +38,9 @@ interface ChatDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAnswer(answer: AnswerEntity): Long
 
+    @Query("SELECT * FROM answers WHERE id = :id")
+    suspend fun getAnswer(id: Long): AnswerEntity?
+
     @Update(onConflict = OnConflictStrategy.REPLACE, entity = AnswerEntity::class)
     suspend fun updateAnswer(answer: AnswerEntity)
 

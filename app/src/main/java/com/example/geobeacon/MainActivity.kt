@@ -51,7 +51,9 @@ class MainActivity : ComponentActivity() {
                 if (permissions.all {
                         ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
                     }) {
-                    application.bluetoothManager.startServer()
+                    if (application.bluetoothManager.gattServer == null){
+                        application.bluetoothManager.startServer()
+                    }
                     MainApp(settingsViewModel, settings, application.bluetoothManager)
                 }
             }

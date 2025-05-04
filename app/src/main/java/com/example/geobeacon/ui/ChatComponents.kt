@@ -15,6 +15,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -115,12 +116,14 @@ fun ChatAnswer(answer: MessageAnswer) {
             imageVector = when (answer.status) {
                 AnswerStatus.ANSWER_CORRECT -> Icons.Default.Check
                 AnswerStatus.ANSWER_WRONG -> Icons.Default.Close
-                else -> Icons.Default.Refresh
+                AnswerStatus.ANSWER_PENDING -> Icons.Default.Refresh
+                AnswerStatus.ANSWER_UNANSWERED -> Icons.Default.Warning
             },
             tint = when (answer.status) {
                 AnswerStatus.ANSWER_CORRECT -> Color.Green
                 AnswerStatus.ANSWER_WRONG -> Color.Red
-                else -> Color.Blue
+                AnswerStatus.ANSWER_PENDING -> Color.Blue
+                AnswerStatus.ANSWER_UNANSWERED -> Color(255, 165, 0, 255)
             },
             contentDescription = null,
             modifier = Modifier

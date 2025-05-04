@@ -96,8 +96,13 @@ class ChatRepository(private val dao: ChatDao) {
         }
     }
 
-    suspend fun insertAnswer(answer: MessageAnswer, messageId: Long) {
-        dao.insertAnswer(AnswerEntity(messageId = messageId, text = answer.text, status = answer.status.value))
+    suspend fun insertAnswer(answer: MessageAnswer, messageId: Long): Long {
+        return dao.insertAnswer(AnswerEntity(messageId = messageId, text = answer.text, status = answer.status.value))
+    }
+
+    suspend fun getAnswer(id: Long): MessageAnswer {
+        val answer = dao.getAnswer(id) ?: throw Exception("Answer not found")
+        return MessageAnswer(answer.text, AnswerStatus.fromInt(answer.status)!!, answer.id)
     }
 
     suspend fun updateAnswer(answer: MessageAnswer, messageId: Long) {
