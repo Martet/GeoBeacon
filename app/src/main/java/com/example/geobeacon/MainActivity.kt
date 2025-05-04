@@ -6,7 +6,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.annotation.RequiresPermission
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -23,6 +22,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.geobeacon.data.BluetoothConnectionManager
 import com.example.geobeacon.data.db.SettingsEntity
 import com.example.geobeacon.ui.HistoryScreen
 import com.example.geobeacon.ui.MainScreen
@@ -51,7 +51,8 @@ class MainActivity : ComponentActivity() {
                 if (permissions.all {
                         ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
                     }) {
-                    MainApp(settingsViewModel, settings)
+                    application.bluetoothManager.startServer()
+                    MainApp(settingsViewModel, settings, application.bluetoothManager)
                 }
             }
         }
@@ -59,9 +60,8 @@ class MainActivity : ComponentActivity() {
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
 @Composable
-fun MainApp(settingsViewModel: SettingsViewModel, settings: SettingsEntity) {
+fun MainApp(settingsViewModel: SettingsViewModel, settings: SettingsEntity, bluetoothManager: BluetoothConnectionManager) {
     val navController = rememberNavController()
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -92,7 +92,7 @@ fun MainApp(settingsViewModel: SettingsViewModel, settings: SettingsEntity) {
                     HistoryScreen()
                 }
                 composable(Screens.Chat.screen.route) {
-                    MainScreen()
+                    MainScreen(bluetoothManager)
                 }
                 composable(Screens.Settings.screen.route) {
                     SettingsScreen(settingsViewModel)

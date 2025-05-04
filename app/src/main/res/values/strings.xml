@@ -1,6 +1,6 @@
 <resources>
-    <string name="app_name">GeoBeacon</string>
-    <string name="title_activity_main">MainActivity</string>
+    <string name="app_name" translatable="false">GeoBeacon</string>
+    <string name="title_activity_main" translatable="false">MainActivity</string>
 
     <string name="scanning">Scanning…</string>
     <string name="disconnect_dialog_warning">Are you sure you want to disconnect?</string>
@@ -9,9 +9,9 @@
     <string name="no">No</string>
     <string name="type_answer">Type your answer…</string>
 
-    <string name="protocol_correct">Spravne!</string>
-    <string name="protocol_wrong">Spatna odpoved. Zkuste to prosim znovu.</string>
-    <string name="protocol_end">Jste na konci dialogu. Pro novy pruchod se odpojte a znovu pripojte.</string>
+    <string name="protocol_correct" translatable="false">Spravne!</string>
+    <string name="protocol_wrong" translatable="false">Spatna odpoved. Zkuste to prosim znovu.</string>
+    <string name="protocol_end" translatable="false">Jste na konci dialogu. Pro novy pruchod se odpojte a znovu pripojte.</string>
     <string name="history">History</string>
     <string name="chat">Chat</string>
     <string name="settings">Settings</string>
@@ -24,6 +24,7 @@
     <string name="settings_dark_mode">Dark mode</string>
     <string name="dialog">Dialog</string>
     <string name="config">Configuration</string>
-    <string name="chat_finished">Congratulations!\nYou are at the end of the conversation.</string>
+    <string name="chat_finished">Congratulations! You are at the end of the conversation.</string>
     <string name="disconnect">Disconnect</string>
+    <string name="history_no_conversations">The history is empty.</string>
 </resources>

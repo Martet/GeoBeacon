@@ -5,6 +5,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -84,19 +85,28 @@ fun ConversationList(conversations: List<ConversationData>, listState: LazyListS
             title = { Text(text = stringResource(R.string.history_title)) },
             expandedHeight = 24.dp,
         )
-        LazyColumn(
-            modifier = Modifier.padding(16.dp).fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            state = listState,
-            reverseLayout = true
-        ) {
-            items(conversations.size) { i ->
-                ConversationItem(
-                    conversation = conversations[i],
-                    df = dateFormatter,
-                    tf = timeFormatter,
-                    onClick = clickedDetail
-                )
+        if (conversations.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(stringResource(R.string.history_no_conversations))
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.padding(16.dp).fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                state = listState,
+                reverseLayout = true
+            ) {
+                items(conversations.size) { i ->
+                    ConversationItem(
+                        conversation = conversations[i],
+                        df = dateFormatter,
+                        tf = timeFormatter,
+                        onClick = clickedDetail
+                    )
+                }
             }
         }
     }

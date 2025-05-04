@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="scanning">Vyhledávání…</string>
+    <string name="disconnect_dialog_warning">Opravdu se chcete odpojit?</string>
+    <string name="warning">Varování</string>
+    <string name="yes">Ano</string>
+    <string name="no">Ne</string>
+    <string name="type_answer">Napište odpověď…</string>
+    <string name="history">Historie</string>
+    <string name="chat">Chat</string>
+    <string name="settings">Nastavení</string>
+    <string name="history_title">Historie konverzací</string>
+    <string name="delete_dialog_warning">Opravdu chcete smazat tuto konverzaci?</string>
+    <string name="settings_title">Nastavení</string>
+    <string name="settings_developer">Režim pro správce</string>
+    <string name="history_incomplete_conversation">Probíhající konverzace</string>
+    <string name="settings_respect_theme">Respektovat systémové téma</string>
+    <string name="settings_dark_mode">Tmavý režim</string>
+    <string name="dialog">Dialog</string>
+    <string name="config">Konfigurace</string>
+    <string name="chat_finished">Gratulace! Jste na konci konverzace.</string>
+    <string name="disconnect">Odpojit</string>
+    <string name="history_no_conversations">Historie je prázdná.</string>
+</resources>
