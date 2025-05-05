@@ -7,6 +7,9 @@ import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
 import androidx.room.Relation
 
+/*
+    Chat history
+ */
 @Entity(tableName = "conversations")
 data class ConversationEntity(
     @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "id") val id: Long = 0,
@@ -53,14 +56,6 @@ data class AnswerEntity(
     @ColumnInfo(name = "status") val status: Int,
 )
 
-@Entity(tableName = "settings")
-data class SettingsEntity(
-    @PrimaryKey val id: Int = 0,
-    val respectSystemTheme: Boolean = true,
-    val darkMode: Boolean = false,
-    val devMode: Boolean = false,
-)
-
 data class ConversationWithMessagesAndAnswers(
     @Embedded val conversation: ConversationEntity,
     @Relation(
@@ -79,4 +74,118 @@ data class MessageWithAnswers(
         entityColumn = "message_id"
     )
     val answers: List<AnswerEntity>
+)
+
+/*
+    Settings
+ */
+@Entity(tableName = "settings")
+data class SettingsEntity(
+    @PrimaryKey val id: Int = 0,
+    val respectSystemTheme: Boolean = true,
+    val darkMode: Boolean = false,
+    val devMode: Boolean = false,
+)
+
+/*
+    Dialog editor
+ */
+@Entity(
+    tableName = "dialogs",
+    foreignKeys = [
+        ForeignKey(
+            entity = StateEntity::class,
+            parentColumns = ["state_id"],
+            childColumns = ["start_state"],
+            onDelete = ForeignKey.SET_NULL
+        ),
+        ForeignKey(
+            entity = StateEntity::class,
+            parentColumns = ["state_id"],
+            childColumns = ["end_state"],
+            onDelete = ForeignKey.SET_NULL
+        )
+    ]
+)
+data class DialogEntity(
+    @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "dialog_id") val id: Long = 0,
+    @ColumnInfo(name = "name") val name: String,
+    @ColumnInfo(name = "timestamp") val timestamp: Long,
+    @ColumnInfo(name = "start_state") val startState: Long?,
+    @ColumnInfo(name = "end_state") val endState: Long?,
+)
+
+@Entity(
+    tableName = "states",
+    foreignKeys = [
+        ForeignKey(
+            entity = DialogEntity::class,
+            parentColumns = ["dialog_id"],
+            childColumns = ["owner_id"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ]
+)
+data class StateEntity(
+    @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "state_id") val id: Long = 0,
+    @ColumnInfo(name = "owner_id", index = true) val dialogId: Long,
+    @ColumnInfo(name = "name") val name: String,
+    @ColumnInfo(name = "text") val text: String,
+    @ColumnInfo(name = "type") val type: Int,
+)
+
+@Entity(
+    tableName = "transitions",
+    foreignKeys = [
+        ForeignKey(
+            entity = StateEntity::class,
+            parentColumns = ["state_id"],
+            childColumns = ["from_state"],
+            onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = StateEntity::class,
+            parentColumns = ["state_id"],
+            childColumns = ["to_state"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ]
+)
+data class TransitionEntity(
+    @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "transition_id") val id: Long = 0,
+    @ColumnInfo(name = "from_state", index = true) val fromState: Long,
+    @ColumnInfo(name = "to_state", index = true) val toState: Long,
+    @ColumnInfo(name = "answer") val answer: String,
+)
+
+/*data class DialogWithStatesAndTransitions(
+    @Embedded val dialog: DialogEntity,
+    @Relation(
+        entity = StateEntity::class,
+        parentColumn = "start_state",
+        entityColumn = "state_id"
+    )
+    val startState: StateEntity?,
+    @Relation(
+        entity = StateEntity::class,
+        parentColumn = "end_state",
+        entityColumn = "state_id"
+    )
+    val finishState: StateEntity?,
+    @Relation(
+        entity = StateEntity::class,
+        parentColumn = "dialog_id",
+        entityColumn = "owner_id"
+    )
+    val states: List<StateWithTransitions>
+)*/
+
+data class StateWithTransitions(
+    @Embedded val state: StateEntity,
+    @Relation(
+        entity = TransitionEntity::class,
+        parentColumn = "state_id",
+        entityColumn = "from_state"
+    )
+    val transitions: List<TransitionEntity>
 )
