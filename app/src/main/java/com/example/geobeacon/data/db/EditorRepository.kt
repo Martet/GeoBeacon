@@ -87,6 +87,11 @@ class EditorRepository(private val dao: EditorDao) {
         dao.deleteDialog(dialogId)
     }
 
+    suspend fun updateDialogName(dialogId: Long, name: String) {
+        val dialog = dao.getDialog(dialogId) ?: throw Exception("Dialog not found")
+        dao.updateDialog(dialog.copy(name = name))
+    }
+
     suspend fun deleteState(stateId: Long) {
         dao.deleteState(stateId)
     }
@@ -134,5 +139,29 @@ class EditorRepository(private val dao: EditorDao) {
                 )
             }
         }
+    }
+
+    suspend fun updateState(state: StateData, dialogId: Long) {
+        dao.updateState(StateEntity(
+            state.id,
+            dialogId,
+            state.name,
+            state.text,
+            state.type.ordinal
+        ))
+        dao.deleteTransitionsFor(state.id)
+        state.answers.forEach {
+            dao.insertTransition(TransitionEntity(0, state.id, it.toState?.id, it.answer))
+        }
+    }
+
+    suspend fun setStartingState(state: StateData, dialogId: Long) {
+        val dialog = dao.getDialog(dialogId) ?: throw Exception("Dialog not found")
+        dao.updateDialog(dialog.copy(startState = state.id))
+    }
+
+    suspend fun setFinishState(state: StateData, dialogId: Long) {
+        val dialog = dao.getDialog(dialogId) ?: throw Exception("Dialog not found")
+        dao.updateDialog(dialog.copy(endState = state.id))
     }
 }

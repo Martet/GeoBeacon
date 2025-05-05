@@ -111,8 +111,8 @@ data class DialogEntity(
     @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "dialog_id") val id: Long = 0,
     @ColumnInfo(name = "name") val name: String,
     @ColumnInfo(name = "timestamp") val timestamp: Long,
-    @ColumnInfo(name = "start_state") val startState: Long?,
-    @ColumnInfo(name = "end_state") val endState: Long?,
+    @ColumnInfo(name = "start_state", index = true) val startState: Long?,
+    @ColumnInfo(name = "end_state", index = true) val endState: Long?,
 )
 
 @Entity(
@@ -153,32 +153,10 @@ data class StateEntity(
 )
 data class TransitionEntity(
     @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "transition_id") val id: Long = 0,
-    @ColumnInfo(name = "from_state", index = true) val fromState: Long,
-    @ColumnInfo(name = "to_state", index = true) val toState: Long,
+    @ColumnInfo(name = "from_state", index = true) val fromState: Long?,
+    @ColumnInfo(name = "to_state", index = true) val toState: Long?,
     @ColumnInfo(name = "answer") val answer: String,
 )
-
-/*data class DialogWithStatesAndTransitions(
-    @Embedded val dialog: DialogEntity,
-    @Relation(
-        entity = StateEntity::class,
-        parentColumn = "start_state",
-        entityColumn = "state_id"
-    )
-    val startState: StateEntity?,
-    @Relation(
-        entity = StateEntity::class,
-        parentColumn = "end_state",
-        entityColumn = "state_id"
-    )
-    val finishState: StateEntity?,
-    @Relation(
-        entity = StateEntity::class,
-        parentColumn = "dialog_id",
-        entityColumn = "owner_id"
-    )
-    val states: List<StateWithTransitions>
-)*/
 
 data class StateWithTransitions(
     @Embedded val state: StateEntity,

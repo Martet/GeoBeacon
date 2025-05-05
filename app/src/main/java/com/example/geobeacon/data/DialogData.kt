@@ -1,5 +1,6 @@
 package com.example.geobeacon.data
 
+import com.example.geobeacon.R
 import java.util.Date
 
 data class DialogData(
@@ -32,5 +33,14 @@ enum class StateType(val value: Int) {
 
     companion object {
         fun fromInt(value: Int) = StateType.entries.find { it.value == value }
+    }
+}
+
+fun StateType.toStringResource(): Int {
+    return when (this.value) {
+        StateType.OPEN_QUESTION.value -> R.string.editor_state_type_open_question
+        StateType.CLOSED_QUESTION.value -> R.string.editor_state_type_closed_question
+        StateType.MESSAGE.value -> R.string.editor_state_type_message
+        else -> R.string.editor_state_type_unknown
     }
 }

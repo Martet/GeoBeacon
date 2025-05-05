@@ -1,7 +1,7 @@
 package com.example.geobeacon.ui
 
+import android.util.Log
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,15 +21,24 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -39,7 +48,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -49,6 +60,8 @@ import com.example.geobeacon.data.DialogData
 import com.example.geobeacon.data.StateData
 import com.example.geobeacon.data.StateType
 import com.example.geobeacon.data.TransitionData
+import com.example.geobeacon.data.toStringResource
+import kotlinx.coroutines.delay
 import java.text.DateFormat
 
 @Composable
@@ -62,22 +75,20 @@ fun EditorScreen() {
 
     val listState = rememberLazyListState()
 
-    AnimatedContent(targetState = selectedDialog, label = "Selected dialog") { dialog ->
-        if (dialog == null) {
-            DialogList(
-                dialogs = dialogs,
-                listState = listState,
-                clickedDetail = { viewModel.setDialog(it) },
-                onNewDialog = { viewModel.newDialog(it) }
-            )
-        } else {
-            DialogDetail(
-                viewModel = viewModel,
-                dialog = dialog,
-                onDelete = { viewModel.deleteDialog(dialog.id) },
-                onBack = { viewModel.setDialog(null) }
-            )
-        }
+    if (selectedDialog == null) {
+        DialogList(
+            dialogs = dialogs,
+            listState = listState,
+            clickedDetail = { viewModel.setDialog(it) },
+            onNewDialog = { viewModel.newDialog(it) }
+        )
+    } else {
+        DialogDetail(
+            viewModel = viewModel,
+            dialog = selectedDialog!!,
+            onDelete = { viewModel.deleteDialog(selectedDialog!!.id) },
+            onBack = { viewModel.setDialog(null) }
+        )
     }
 }
 
@@ -87,49 +98,52 @@ fun DialogList(dialogs: List<DialogData>, listState: LazyListState, clickedDetai
     val dateFormatter = remember { DateFormat.getDateInstance(DateFormat.SHORT) }
     val timeFormatter = remember { DateFormat.getTimeInstance(DateFormat.SHORT) }
 
-    val showNewDialog = remember { mutableStateOf(false) }
+    var showNewDialog by remember { mutableStateOf(false) }
 
     Column {
         TopAppBar(
             title = { Text(stringResource(R.string.editor_title)) },
             expandedHeight = 24.dp,
-            actions = {
-                IconButton(onClick = { showNewDialog.value = true }) {
-                    Icon(Icons.Default.Add, contentDescription = "Add")
-                }
-            }
         )
-        if (dialogs.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(stringResource(R.string.editor_no_dialogs))
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.padding(16.dp).fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                state = listState,
-                reverseLayout = true
-            ) {
-                items(dialogs.size) { i ->
-                    DialogItem(
-                        dialog = dialogs[i],
-                        df = dateFormatter,
-                        tf = timeFormatter,
-                        onClick = clickedDetail
-                    )
+        Box(modifier = Modifier.padding(16.dp).fillMaxSize()) {
+            if (dialogs.isEmpty()) {
+                Text(
+                    stringResource(R.string.editor_no_dialogs),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    state = listState,
+                    reverseLayout = true
+                ) {
+                    items(dialogs.size) { i ->
+                        DialogItem(
+                            dialog = dialogs[i],
+                            df = dateFormatter,
+                            tf = timeFormatter,
+                            onClick = clickedDetail
+                        )
+                    }
                 }
+            }
+
+            FloatingActionButton(
+                onClick = { showNewDialog = true },
+                modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Add")
             }
         }
     }
 
-    if (showNewDialog.value) {
+    if (showNewDialog) {
         CreateNameAlert(
             title = stringResource(R.string.new_dialog),
             onConfirm = { onNewDialog(it) },
-            onDismiss = { showNewDialog.value = false }
+            onDismiss = { showNewDialog = false }
         )
     }
 }
@@ -200,9 +214,16 @@ fun StateList(states: List<StateData>, dialog: DialogData, listState: LazyListSt
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showNewStateDialog by remember { mutableStateOf(false) }
 
+    var dialogName by remember { mutableStateOf(dialog.name) }
+
+    LaunchedEffect(dialogName) {
+        delay(300)
+        viewModel.updateDialogName(dialogName)
+    }
+
     Column {
         TopAppBar(
-            title = { Text(dialog.name) },
+            title = { Text(stringResource(R.string.dialog) + ": " + dialog.name) },
             expandedHeight = 24.dp,
             navigationIcon = {
                 IconButton(onClick = { viewModel.setDialog(null) }) {
@@ -215,21 +236,59 @@ fun StateList(states: List<StateData>, dialog: DialogData, listState: LazyListSt
                 }
             }
         )
-        LazyColumn(
-            modifier = Modifier.padding(16.dp).fillMaxSize(),
+
+        Column(
             verticalArrangement = Arrangement.spacedBy(16.dp),
-            state = listState
+            modifier = Modifier.fillMaxWidth().padding(16.dp)
         ) {
-            items(states.size) { i ->
-                StateItem(state = states[i], onClick = { viewModel.setState(states[i]) })
-            }
-            if (states.isEmpty()) {
-                item {
-                    Text(stringResource(R.string.editor_no_states))
+            OutlinedTextField(
+                value = dialogName,
+                onValueChange = { dialogName = it },
+                singleLine = true,
+                label = { Text(stringResource(R.string.name)) },
+                modifier = Modifier.fillMaxWidth()
+            )
+            InputDropdownMenu(
+                label = stringResource(R.string.editor_state_starting),
+                options = states,
+                selectedOption = dialog.startState,
+                onOptionSelected = { viewModel.setStartingState(it) },
+                optionLabel = { it.name },
+            )
+            InputDropdownMenu(
+                label = stringResource(R.string.editor_state_finishing),
+                options = states,
+                selectedOption = dialog.finishState,
+                onOptionSelected = { viewModel.setFinishState(it) },
+                optionLabel = { it.name },
+            )
+
+            HorizontalDivider()
+
+            Box(modifier = Modifier.fillMaxSize()) {
+                if (states.isEmpty()) {
+                    Text(
+                        stringResource(R.string.editor_no_states),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        state = listState
+                    ) {
+                        items(states.size) { i ->
+                            StateItem(state = states[i], onClick = { viewModel.setState(states[i]) })
+                        }
+                    }
                 }
-            }
-            item {
-                IconButton(onClick = { showNewStateDialog = true }) {
+
+                FloatingActionButton(
+                    onClick = { showNewStateDialog = true },
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
+                ) {
                     Icon(Icons.Default.Add, contentDescription = "Add")
                 }
             }
@@ -293,17 +352,20 @@ fun StateItem(state: StateData, onClick: () -> Unit) {
 @Composable
 fun StateDetail(state: StateData, viewModel: EditorViewModel) {
     var showDeleteState by remember { mutableStateOf(false) }
+    var showBackState by remember { mutableStateOf(false) }
 
     val listState = rememberLazyListState()
 
+    val states by viewModel.dialogStates.collectAsState()
     val transitions by viewModel.transitions.collectAsState()
+    val modified by viewModel.isModified.collectAsState()
 
     Column {
         TopAppBar(
-            title = { Text(state.name) },
+            title = { Text(stringResource(R.string.state) + ": " + state.name) },
             expandedHeight = 24.dp,
             navigationIcon = {
-                IconButton(onClick = { viewModel.setState(null) }) {
+                IconButton(onClick = { showBackState = true }) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                 }
             },
@@ -313,28 +375,106 @@ fun StateDetail(state: StateData, viewModel: EditorViewModel) {
                 }
             }
         )
-        LazyColumn(
-            modifier = Modifier.padding(16.dp).fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            state = listState
-        ) {
-            items(transitions.size) { i ->
-                AnswerItem(answer = transitions[i], type = state.type, viewModel = viewModel)
-            }
-            if (transitions.isEmpty()) {
-                item {
-                    Text(stringResource(R.string.editor_no_answers))
+
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier.padding(16.dp).fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                OutlinedTextField(
+                    value = state.name,
+                    onValueChange = { viewModel.setStateIdentifier(it) },
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.editor_state_identifier)) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = state.text,
+                    onValueChange = { viewModel.setStateText(it) },
+                    singleLine = true,
+                    label = {
+                        if (state.type == StateType.MESSAGE) {
+                            Text(stringResource(R.string.editor_state_text))
+                        } else {
+                            Text(stringResource(R.string.editor_state_question))
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                InputDropdownMenu(
+                    label = stringResource(R.string.editor_state_type),
+                    options = StateType.entries,
+                    selectedOption = state.type,
+                    onOptionSelected = { viewModel.setStateType(it) },
+                    optionLabel = { stringResource(it.toStringResource()) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                HorizontalDivider()
+
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    state = listState,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (state.type == StateType.MESSAGE) {
+                        item {
+                            InputDropdownMenu(
+                                label = stringResource(R.string.editor_state),
+                                options = states,
+                                selectedOption = transitions.first().toState,
+                                onOptionSelected = { viewModel.setAnswerState(0, it) },
+                                optionLabel = { it.name },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    } else {
+                        items(transitions.size) { i ->
+                            AnswerItem(answer = transitions[i], index = i, viewModel = viewModel)
+                        }
+                        if (transitions.isEmpty()) {
+                            item {
+                                Text(stringResource(R.string.editor_no_answers))
+                            }
+                        }
+                        item {
+                            Row {
+                                IconButton(onClick = { viewModel.newTransition() }) {
+                                    Icon(Icons.Default.Add, contentDescription = "Add")
+                                }
+                                if (transitions.isNotEmpty()) {
+                                    IconButton(
+                                        onClick = { viewModel.deleteTransition() },
+                                        modifier = Modifier.padding(start = 16.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Delete,
+                                            tint = Color.Red,
+                                            contentDescription = "Delete"
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
-            item {
-                IconButton(onClick = { viewModel.newTransition() }) {
-                    Icon(Icons.Default.Add, contentDescription = "Add")
-                }
+
+            if (modified) {
+                ExtendedFloatingActionButton(
+                    text = { Text(stringResource(R.string.save)) },
+                    onClick = { viewModel.saveState() },
+                    modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                    icon = {
+                        Icon(painterResource(R.drawable.baseline_save_24), contentDescription = "Save changes")
+                    }
+                )
             }
         }
     }
 
-    BackHandler { viewModel.setState(null) }
+    BackHandler { showBackState = true }
 
     if (showDeleteState) {
         DeleteAlert(
@@ -343,17 +483,91 @@ fun StateDetail(state: StateData, viewModel: EditorViewModel) {
             onDismiss = { showDeleteState = false }
         )
     }
+
+    if (showBackState) {
+        if (!modified){
+            viewModel.setState(null)
+        } else {
+            DeleteAlert(
+                message = stringResource(R.string.unsaved_state_editor_warning),
+                onDelete = { viewModel.setState(null) },
+                onDismiss = { showBackState = false }
+            )
+        }
+    }
 }
 
 @Composable
-fun AnswerItem(answer: TransitionData, type: StateType, viewModel: EditorViewModel) {
-    Row {
-        TextField(
+fun AnswerItem(answer: TransitionData, index: Int, viewModel: EditorViewModel) {
+    val states by viewModel.dialogStates.collectAsState()
+
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        OutlinedTextField(
             value = answer.answer,
-            onValueChange = { viewModel.setAnswerText(answer, it) },
+            onValueChange = { viewModel.setAnswerText(index, it) },
             label = { Text(stringResource(R.string.editor_answer)) },
+            singleLine = true,
             modifier = Modifier.weight(1f)
         )
+        InputDropdownMenu(
+            label = stringResource(R.string.editor_state),
+            options = states,
+            selectedOption = answer.toState,
+            onOptionSelected = { viewModel.setAnswerState(index, it) },
+            optionLabel = { it.name },
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun <T> InputDropdownMenu(
+    label: String,
+    options: List<T>,
+    selectedOption: T?,
+    onOptionSelected: (T) -> Unit,
+    optionLabel: @Composable (T) -> String,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedText = if (selectedOption == null) " " else optionLabel(selectedOption)
+    Log.d("DropdownMenu", "$options")
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded },
+        modifier = modifier
+    ) {
+        OutlinedTextField(
+            value = selectedText,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(label) },
+            trailingIcon = {
+                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+            },
+            modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable)
+        )
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.exposedDropdownSize()
+        ) {
+            options.forEach { item ->
+                DropdownMenuItem(
+                    text = { Text(optionLabel(item)) },
+                    onClick = {
+                        onOptionSelected(item)
+                        expanded = false
+                    }
+                )
+            }
+        }
     }
 }
 
@@ -365,7 +579,9 @@ fun CreateNameAlert(title: String, onConfirm: (String) -> Unit, onDismiss: () ->
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
-            TextField(
+            OutlinedTextField(
+                shape = MaterialTheme.shapes.small,
+                singleLine = true,
                 value = text,
                 onValueChange = { text = it },
                 label = { Text(stringResource(R.string.name)) }

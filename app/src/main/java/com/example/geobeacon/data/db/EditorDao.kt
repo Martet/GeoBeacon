@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
@@ -36,12 +37,20 @@ interface EditorDao {
     @Query("SELECT * FROM states WHERE state_id = :id")
     suspend fun getState(id: Long?): StateEntity?
 
+    @Transaction
     @Query("SELECT * FROM states WHERE state_id = :id")
     suspend fun getStateWithTransitions(id: Long): StateWithTransitions?
 
+    @Transaction
     @Query("SELECT * FROM states WHERE owner_id = :dialogId")
     fun getStatesWithTransitionsFlow(dialogId: Long): Flow<List<StateWithTransitions>>
 
     @Query("DELETE FROM states WHERE state_id = :id")
     suspend fun deleteState(id: Long)
+
+    @Update(entity = StateEntity::class)
+    suspend fun updateState(state: StateEntity)
+
+    @Query("DELETE FROM transitions WHERE from_state = :stateId")
+    suspend fun deleteTransitionsFor(stateId: Long)
 }
