@@ -1,14 +1,27 @@
 package com.example.geobeacon.ui
 
-import android.util.Log
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedContentScope
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -38,11 +51,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,10 +73,12 @@ import com.example.geobeacon.data.DialogData
 import com.example.geobeacon.data.StateData
 import com.example.geobeacon.data.StateType
 import com.example.geobeacon.data.TransitionData
+import com.example.geobeacon.data.ValidationResult
 import com.example.geobeacon.data.toStringResource
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.text.DateFormat
 
+@OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun EditorScreen() {
     val context = LocalContext.current
@@ -75,20 +90,20 @@ fun EditorScreen() {
 
     val listState = rememberLazyListState()
 
-    if (selectedDialog == null) {
-        DialogList(
-            dialogs = dialogs,
-            listState = listState,
-            clickedDetail = { viewModel.setDialog(it) },
-            onNewDialog = { viewModel.newDialog(it) }
-        )
-    } else {
-        DialogDetail(
-            viewModel = viewModel,
-            dialog = selectedDialog!!,
-            onDelete = { viewModel.deleteDialog(selectedDialog!!.id) },
-            onBack = { viewModel.setDialog(null) }
-        )
+    AnimatedSlideIn(selectedDialog) {
+        if (it == null) {
+            DialogList(
+                dialogs = dialogs,
+                listState = listState,
+                clickedDetail = { viewModel.setDialog(it) },
+                onNewDialog = { viewModel.newDialog(it) }
+            )
+        } else {
+            DialogDetail(
+                viewModel = viewModel,
+                dialog = it,
+            )
+        }
     }
 }
 
@@ -140,8 +155,9 @@ fun DialogList(dialogs: List<DialogData>, listState: LazyListState, clickedDetai
     }
 
     if (showNewDialog) {
-        CreateNameAlert(
-            title = stringResource(R.string.new_dialog),
+        CreateInputAlert(
+            titleResource = R.string.new_dialog,
+            labelResource = R.string.name,
             onConfirm = { onNewDialog(it) },
             onDismiss = { showNewDialog = false }
         )
@@ -187,24 +203,26 @@ fun DialogItem(
 }
 
 @Composable
-fun DialogDetail(viewModel: EditorViewModel, dialog: DialogData, onDelete: () -> Unit, onBack: () -> Unit) {
+fun DialogDetail(viewModel: EditorViewModel, dialog: DialogData) {
     val states by viewModel.dialogStates.collectAsState()
     val selectedState by viewModel.state.collectAsState()
 
     val listState = rememberLazyListState()
 
-    if (selectedState == null) {
-        StateList(
-            states = states,
-            dialog = dialog,
-            listState = listState,
-            viewModel = viewModel,
-        )
-    } else {
-        StateDetail(
-            state = selectedState!!,
-            viewModel = viewModel,
-        )
+    AnimatedSlideIn(selectedState) {
+        if (it == null) {
+            StateList(
+                states = states,
+                dialog = dialog,
+                listState = listState,
+                viewModel = viewModel,
+            )
+        } else {
+            StateDetail(
+                state = it,
+                viewModel = viewModel,
+            )
+        }
     }
 }
 
@@ -216,14 +234,9 @@ fun StateList(states: List<StateData>, dialog: DialogData, listState: LazyListSt
 
     var dialogName by remember { mutableStateOf(dialog.name) }
 
-    LaunchedEffect(dialogName) {
-        delay(300)
-        viewModel.updateDialogName(dialogName)
-    }
-
     Column {
         TopAppBar(
-            title = { Text(stringResource(R.string.dialog) + ": " + dialog.name) },
+            title = { Text(stringResource(R.string.dialog) + ": " + dialog.name, overflow = TextOverflow.Ellipsis) },
             expandedHeight = 24.dp,
             navigationIcon = {
                 IconButton(onClick = { viewModel.setDialog(null) }) {
@@ -238,13 +251,20 @@ fun StateList(states: List<StateData>, dialog: DialogData, listState: LazyListSt
         )
 
         Column(
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
             modifier = Modifier.fillMaxWidth().padding(16.dp)
         ) {
             OutlinedTextField(
                 value = dialogName,
                 onValueChange = { dialogName = it },
                 singleLine = true,
+                trailingIcon = {
+                    if (dialogName != dialog.name) {
+                        IconButton(onClick = { viewModel.updateDialogName(dialogName) }) {
+                            Icon(painterResource(R.drawable.baseline_save_24), contentDescription = "Save")
+                        }
+                    }
+                },
                 label = { Text(stringResource(R.string.name)) },
                 modifier = Modifier.fillMaxWidth()
             )
@@ -306,8 +326,10 @@ fun StateList(states: List<StateData>, dialog: DialogData, listState: LazyListSt
     }
 
     if (showNewStateDialog) {
-        CreateNameAlert(
-            title = stringResource(R.string.editor_new_state),
+        CreateInputAlert(
+            titleResource = R.string.editor_new_state,
+            labelResource = R.string.editor_state_identifier,
+            validator = { viewModel.stateIdentifierValidator(it) },
             onConfirm = { viewModel.newState(it) },
             onDismiss = { showNewStateDialog = false }
         )
@@ -351,6 +373,8 @@ fun StateItem(state: StateData, onClick: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StateDetail(state: StateData, viewModel: EditorViewModel) {
+    val coroutineScope = rememberCoroutineScope()
+
     var showDeleteState by remember { mutableStateOf(false) }
     var showBackState by remember { mutableStateOf(false) }
 
@@ -359,10 +383,14 @@ fun StateDetail(state: StateData, viewModel: EditorViewModel) {
     val states by viewModel.dialogStates.collectAsState()
     val transitions by viewModel.transitions.collectAsState()
     val modified by viewModel.isModified.collectAsState()
+    val identifierValid by viewModel.stateIdentifierValid.collectAsState()
+    val textValid by viewModel.stateTextValid.collectAsState()
+    val identifierText by viewModel.stateIdentifier.collectAsState()
+    val stateText by viewModel.stateText.collectAsState()
 
     Column {
         TopAppBar(
-            title = { Text(stringResource(R.string.state) + ": " + state.name) },
+            title = { Text(stringResource(R.string.state) + ": " + state.name, overflow = TextOverflow.Ellipsis) },
             expandedHeight = 24.dp,
             navigationIcon = {
                 IconButton(onClick = { showBackState = true }) {
@@ -376,22 +404,42 @@ fun StateDetail(state: StateData, viewModel: EditorViewModel) {
             }
         )
 
-        Box(modifier = Modifier.fillMaxSize()) {
+        Box(modifier = Modifier.padding(16.dp).fillMaxSize()) {
+            this@Column.AnimatedVisibility(
+                modified,
+                modifier = Modifier.align(Alignment.BottomEnd),
+                enter = fadeIn() + slideInVertically(initialOffsetY = {it / 2}),
+                exit = fadeOut() + slideOutVertically()
+            ) {
+                ExtendedFloatingActionButton(
+                    text = { Text(stringResource(R.string.save)) },
+                    onClick = { viewModel.saveState() },
+                    modifier = Modifier.padding(16.dp),
+                    icon = {
+                        Icon(painterResource(R.drawable.baseline_save_24), contentDescription = "Save changes")
+                    }
+                )
+            }
+
             Column(
-                modifier = Modifier.padding(16.dp).fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 OutlinedTextField(
-                    value = state.name,
+                    value = identifierText,
                     onValueChange = { viewModel.setStateIdentifier(it) },
                     singleLine = true,
+                    isError = !identifierValid.valid,
+                    supportingText = { if (!identifierValid.valid) Text(stringResource(identifierValid.errorStringResource!!)) },
                     label = { Text(stringResource(R.string.editor_state_identifier)) },
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
-                    value = state.text,
+                    value = stateText,
                     onValueChange = { viewModel.setStateText(it) },
                     singleLine = true,
+                    isError = !textValid.valid,
+                    supportingText = { if (!textValid.valid) Text(stringResource(identifierValid.errorStringResource!!)) },
                     label = {
                         if (state.type == StateType.MESSAGE) {
                             Text(stringResource(R.string.editor_state_text))
@@ -410,20 +458,23 @@ fun StateDetail(state: StateData, viewModel: EditorViewModel) {
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                HorizontalDivider()
+                HorizontalDivider(modifier = Modifier.padding(top = 16.dp))
 
                 LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     state = listState,
                     modifier = Modifier.fillMaxWidth()
                 ) {
+                    item {
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
                     if (state.type == StateType.MESSAGE) {
                         item {
                             InputDropdownMenu(
                                 label = stringResource(R.string.editor_state),
                                 options = states,
-                                selectedOption = transitions.first().toState,
+                                selectedOption = transitions.firstOrNull()?.toState,
                                 onOptionSelected = { viewModel.setAnswerState(0, it) },
                                 optionLabel = { it.name },
                                 modifier = Modifier.fillMaxWidth()
@@ -440,13 +491,21 @@ fun StateDetail(state: StateData, viewModel: EditorViewModel) {
                         }
                         item {
                             Row {
-                                IconButton(onClick = { viewModel.newTransition() }) {
-                                    Icon(Icons.Default.Add, contentDescription = "Add")
+                                if (transitions.size < 8){
+                                    IconButton(
+                                        onClick = {
+                                            viewModel.newTransition()
+                                            coroutineScope.launch {
+                                                listState.animateScrollToItem(transitions.size - 1)
+                                            }
+                                        }) {
+                                        Icon(Icons.Default.Add, contentDescription = "Add")
+                                    }
                                 }
                                 if (transitions.isNotEmpty()) {
                                     IconButton(
                                         onClick = { viewModel.deleteTransition() },
-                                        modifier = Modifier.padding(start = 16.dp)
+                                        modifier = if(transitions.size < 8) Modifier.padding(start = 16.dp) else Modifier
                                     ) {
                                         Icon(
                                             Icons.Default.Delete,
@@ -459,17 +518,6 @@ fun StateDetail(state: StateData, viewModel: EditorViewModel) {
                         }
                     }
                 }
-            }
-
-            if (modified) {
-                ExtendedFloatingActionButton(
-                    text = { Text(stringResource(R.string.save)) },
-                    onClick = { viewModel.saveState() },
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
-                    icon = {
-                        Icon(painterResource(R.drawable.baseline_save_24), contentDescription = "Save changes")
-                    }
-                )
             }
         }
     }
@@ -500,6 +548,7 @@ fun StateDetail(state: StateData, viewModel: EditorViewModel) {
 @Composable
 fun AnswerItem(answer: TransitionData, index: Int, viewModel: EditorViewModel) {
     val states by viewModel.dialogStates.collectAsState()
+    val answerTextValid by viewModel.answerTextValid.collectAsState()
 
     Row(
         horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -511,6 +560,8 @@ fun AnswerItem(answer: TransitionData, index: Int, viewModel: EditorViewModel) {
             onValueChange = { viewModel.setAnswerText(index, it) },
             label = { Text(stringResource(R.string.editor_answer)) },
             singleLine = true,
+            isError = !answerTextValid[index].valid,
+            supportingText = { if (!answerTextValid[index].valid) Text(stringResource(answerTextValid[index].errorStringResource!!)) },
             modifier = Modifier.weight(1f)
         )
         InputDropdownMenu(
@@ -518,6 +569,7 @@ fun AnswerItem(answer: TransitionData, index: Int, viewModel: EditorViewModel) {
             options = states,
             selectedOption = answer.toState,
             onOptionSelected = { viewModel.setAnswerState(index, it) },
+            supportingText = { if (!answerTextValid[index].valid) Text(" ") },
             optionLabel = { it.name },
             modifier = Modifier.weight(1f)
         )
@@ -532,11 +584,11 @@ fun <T> InputDropdownMenu(
     selectedOption: T?,
     onOptionSelected: (T) -> Unit,
     optionLabel: @Composable (T) -> String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    supportingText: @Composable (() -> Unit)? = null
 ) {
     var expanded by remember { mutableStateOf(false) }
     val selectedText = if (selectedOption == null) " " else optionLabel(selectedOption)
-    Log.d("DropdownMenu", "$options")
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { expanded = !expanded },
@@ -547,6 +599,7 @@ fun <T> InputDropdownMenu(
             onValueChange = {},
             readOnly = true,
             label = { Text(label) },
+            supportingText = supportingText,
             trailingIcon = {
                 ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
             },
@@ -572,25 +625,34 @@ fun <T> InputDropdownMenu(
 }
 
 @Composable
-fun CreateNameAlert(title: String, onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
+fun CreateInputAlert(
+    titleResource: Int,
+    labelResource: Int,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit,
+    validator: (String) -> ValidationResult = { ValidationResult(true) }
+) {
     var text by remember { mutableStateOf("") }
+    var validState by remember(text) { mutableStateOf(validator(text)) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
+        title = { Text(stringResource(titleResource)) },
         text = {
             OutlinedTextField(
                 shape = MaterialTheme.shapes.small,
                 singleLine = true,
                 value = text,
                 onValueChange = { text = it },
-                label = { Text(stringResource(R.string.name)) }
+                isError = !validState.valid,
+                supportingText = { if (!validState.valid) Text(stringResource(validState.errorStringResource!!)) },
+                label = { Text(stringResource(labelResource)) }
             )
         },
         confirmButton = {
             TextButton(
                 onClick = { onConfirm(text) },
-                enabled = text.isNotBlank()
+                enabled = text.isNotBlank() && validState.valid
             ) {
                 Text(stringResource(R.string.create))
             }
@@ -619,5 +681,22 @@ fun DeleteAlert(message: String, onDelete: () -> Unit, onDismiss: () -> Unit) {
                 Text(stringResource(R.string.no))
             }
         }
+    )
+}
+
+@Composable
+fun <T> AnimatedSlideIn(state: T?, content: @Composable (AnimatedContentScope.(state: T?) -> Unit)) {
+    AnimatedContent(
+        state,
+        transitionSpec = {
+            if (targetState != null && initialState == null) {
+                slideInHorizontally(tween(300)) { fullWidth -> fullWidth }.togetherWith(slideOutHorizontally(tween(100)) { fullWidth -> -fullWidth })
+            } else if (targetState == null && initialState != null) {
+                slideInHorizontally(tween(300)) { fullWidth -> -fullWidth }.togetherWith(slideOutHorizontally(tween(100)) { fullWidth -> fullWidth })
+            } else {
+                fadeIn(tween(0)) togetherWith fadeOut(tween(0))
+            }
+        },
+        content = content
     )
 }

@@ -9,31 +9,6 @@ import kotlinx.coroutines.flow.map
 import java.util.Date
 
 class EditorRepository(private val dao: EditorDao) {
-    /*private suspend fun mapDialog(dialog: DialogWithStatesAndTransitions): DialogData {
-        val states = dialog.states.map { state ->
-            StateData(
-                state.state.id, state.state.name, state.state.text,
-                StateType.fromInt(state.state.type)!!,
-                state.transitions.map { transition ->
-                    TransitionData(
-                        transition.id, transition.answer,
-                        dao.getState(transition.toState)?.let {
-                            StateData(it.id, it.name, it.text, StateType.fromInt(it.type)!!)
-                        }
-                    )
-                }
-            )
-        }
-        return DialogData(
-            dialog.dialog.id,
-            dialog.dialog.name,
-            Date(dialog.dialog.timestamp),
-            states.firstOrNull { it.id == dialog.dialog.startState },
-            states.firstOrNull { it.id == dialog.dialog.endState },
-            states
-        )
-    }*/
-
     private suspend fun mapDialog(dialog: DialogEntity): DialogData {
         return DialogData(
             dialog.id,
@@ -44,6 +19,21 @@ class EditorRepository(private val dao: EditorDao) {
             },
             dao.getState(dialog.endState)?.let {
                 StateData(it.id, it.name, it.text, StateType.fromInt(it.type)!!)
+            }
+        )
+    }
+
+    private suspend fun mapState(state: StateWithTransitions): StateData {
+        return StateData(
+            state.state.id, state.state.name, state.state.text,
+            StateType.fromInt(state.state.type)!!,
+            state.transitions.map { transition ->
+                TransitionData(
+                    transition.id, transition.answer,
+                    dao.getState(transition.toState)?.let {
+                        StateData(it.id, it.name, it.text, StateType.fromInt(it.type)!!)
+                    }
+                )
             }
         )
     }
@@ -108,36 +98,12 @@ class EditorRepository(private val dao: EditorDao) {
 
     suspend fun getState(id: Long): StateData? {
         val state = dao.getStateWithTransitions(id) ?: return null
-        return StateData(
-            state.state.id, state.state.name, state.state.text,
-            StateType.fromInt(state.state.type)!!,
-            state.transitions.map { transition ->
-                TransitionData(
-                    transition.id, transition.answer,
-                    dao.getState(transition.toState)?.let {
-                        StateData(it.id, it.name, it.text, StateType.fromInt(it.type)!!)
-                    }
-                )
-            }
-        )
+        return mapState(state)
     }
 
     fun getDialogStatesFlow(dialogId: Long): Flow<List<StateData>> {
         return dao.getStatesWithTransitionsFlow(dialogId).map {
-            it.map { state ->
-                StateData(
-                    state.state.id, state.state.name, state.state.text,
-                    StateType.fromInt(state.state.type)!!,
-                    state.transitions.map {
-                        TransitionData(
-                            it.id, it.answer,
-                            dao.getState(it.toState)?.let {
-                                StateData(it.id, it.name, it.text, StateType.fromInt(it.type)!!)
-                            }
-                        )
-                    }
-                )
-            }
+            it.map { state -> mapState(state) }
         }
     }
 

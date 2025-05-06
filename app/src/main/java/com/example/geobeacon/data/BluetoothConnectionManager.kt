@@ -72,8 +72,8 @@ class BluetoothConnectionManager(private val context: Context) {
         if (!scanning) {
             scanning = true
             CoroutineScope(Dispatchers.IO).launch {
-                if (System.currentTimeMillis() - lastDisconnectTime < 5000) {
-                    delay(5000)
+                if (System.currentTimeMillis() - lastDisconnectTime < 1000) {
+                    delay(10000)
                 }
                 if (gattServer == null) {
                     startServer()

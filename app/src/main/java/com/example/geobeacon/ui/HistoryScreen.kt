@@ -2,7 +2,6 @@ package com.example.geobeacon.ui
 
 import android.icu.text.DateFormat
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -57,7 +56,7 @@ fun HistoryScreen() {
 
     val listState = rememberLazyListState()
 
-    AnimatedContent(targetState = selectedConversation, label = "Selected conversation") { conversation ->
+    AnimatedSlideIn(selectedConversation) { conversation ->
         if (conversation == null) {
             ConversationList(
                 conversations = conversations,

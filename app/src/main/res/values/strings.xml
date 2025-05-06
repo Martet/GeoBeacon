@@ -54,4 +54,9 @@
     <string name="editor_state_starting">Starting state</string>
     <string name="editor_state_finishing">Final state</string>
     <string name="state">State</string>
+    <string name="editor_state_text_invalid">Input too long</string>
+    <string name="editor_state_identifier_invalid_unique">State identifier must be unique</string>
+    <string name="editor_state_identifier_invalid_long">Must be shorten than 16 characters</string>
+    <string name="editor_state_identifier_invalid_characters">Must contain only letters, numbers, _, -</string>
+    <string name="editor_invalid_empty">Can\'t be empty</string>
 </resources>

@@ -55,8 +55,8 @@ class MainActivity : ComponentActivity() {
                     if (application.bluetoothManager.gattServer == null){
                         application.bluetoothManager.startServer()
                     }
-                    MainApp(settingsViewModel, settings, application.bluetoothManager)
                 }
+                MainApp(settingsViewModel, settings, application.bluetoothManager)
             }
         }
     }

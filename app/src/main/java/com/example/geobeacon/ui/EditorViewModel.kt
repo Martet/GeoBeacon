@@ -5,12 +5,15 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.example.geobeacon.R
 import com.example.geobeacon.data.DialogData
 import com.example.geobeacon.data.StateData
 import com.example.geobeacon.data.StateType
 import com.example.geobeacon.data.TransitionData
+import com.example.geobeacon.data.ValidationResult
 import com.example.geobeacon.data.db.EditorRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -52,8 +55,24 @@ class EditorViewModel(private val repository: EditorRepository) : ViewModel() {
     private val oldTransitions = MutableStateFlow<List<TransitionData>>(emptyList())
     val transitions: StateFlow<List<TransitionData>> = _transitions.asStateFlow()
 
-    val isModified = combine(_state, oldState, _transitions, oldTransitions) { state, oldState, transitions, oldTransitions ->
-        state != oldState || transitions != oldTransitions
+    private val _stateIdentifierValid: MutableStateFlow<ValidationResult> = MutableStateFlow(ValidationResult(true))
+    val stateIdentifierValid = _stateIdentifierValid.asStateFlow()
+    private val _stateIdentifier: MutableStateFlow<String> = MutableStateFlow("")
+    val stateIdentifier = _stateIdentifier.asStateFlow()
+    private val _stateTextValid: MutableStateFlow<ValidationResult> = MutableStateFlow(ValidationResult(true))
+    val stateTextValid = _stateTextValid.asStateFlow()
+    private val _stateText: MutableStateFlow<String> = MutableStateFlow("")
+    val stateText = _stateText.asStateFlow()
+
+    private var oldIsModified = false
+
+    val isModified = combine(_state, oldState, _transitions, oldTransitions, _stateIdentifier, _stateText) {
+        if (!oldIsModified) delay(300)
+        oldIsModified = (it[0] != it[1] || it[2] != it[3] || it[4] != (it[1] as StateData?)?.name || it[5] != (it[1] as StateData?)?.text)
+                && _answerTextValid.value.all { it.valid }
+                && _stateIdentifierValid.value.valid
+                && _stateTextValid.value.valid
+        oldIsModified
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     fun setDialog(newDialog: DialogData?) {
@@ -92,8 +111,12 @@ class EditorViewModel(private val repository: EditorRepository) : ViewModel() {
             val newStateId = repository.insertState(StateData(name = name, type = type), _dialog.value?.id ?: -1)
             _state.value = repository.getState(newStateId)
             oldState.value = _state.value
-            _transitions.value = emptyList()
+            _transitions.value = mutableListOf(TransitionData())
             oldTransitions.value = _transitions.value
+            _stateIdentifier.value = name
+            _stateText.value = ""
+            _stateTextValid.value = ValidationResult(true)
+            _stateIdentifierValid.value = ValidationResult(true)
         }
     }
 
@@ -101,32 +124,73 @@ class EditorViewModel(private val repository: EditorRepository) : ViewModel() {
         viewModelScope.launch {
             _state.value = state
             oldState.value = _state.value
-            _transitions.value = state?.answers ?: emptyList()
+            _transitions.value = if (state?.type == StateType.MESSAGE && state.answers.isEmpty())
+                mutableListOf(TransitionData())
+                else state?.answers?.toMutableList()
+                ?: mutableListOf()
             oldTransitions.value = _transitions.value
+            _stateIdentifier.value = state?.name ?: ""
+            _stateText.value = state?.text ?: ""
         }
     }
 
     fun saveState() {
         viewModelScope.launch {
-            val state = _state.value?.copy(answers = _transitions.value) ?: return@launch
+            val state = _state.value?.copy(
+                name = _stateIdentifier.value,
+                text = _stateText.value,
+                type = _state.value?.type ?: StateType.OPEN_QUESTION,
+                answers = _transitions.value
+            ) ?: return@launch
             repository.updateState(state, _dialog.value?.id ?: -1)
             setState(null)
         }
     }
 
+    fun sizeValidator(text: String, size: Int): Boolean {
+        return text.toByteArray(Charsets.UTF_8).size < size
+    }
+
+    private val stateIdentifierRegex = Regex("^[a-zA-Z0-9_-]*$")
+    fun stateIdentifierValidator(identifier: String): ValidationResult {
+        return if (sizeValidator(identifier, 16)) {
+            if (identifier.isEmpty()) {
+                ValidationResult(false, R.string.editor_invalid_empty)
+            } else {
+                if (identifier.matches(stateIdentifierRegex)) {
+                    if (dialogStates.value.any { it.name == identifier }) {
+                        ValidationResult(false, R.string.editor_state_identifier_invalid_unique)
+                    } else {
+                        ValidationResult(true)
+                    }
+                } else {
+                    ValidationResult(false, R.string.editor_state_identifier_invalid_characters)
+                }
+            }
+        } else {
+            ValidationResult(false, R.string.editor_state_identifier_invalid_long)
+        }
+    }
+
     fun setStateIdentifier(identifier: String) {
-        _state.value = _state.value?.copy(name = identifier)
+        _stateIdentifierValid.value = stateIdentifierValidator(identifier)
+        _stateIdentifier.value = identifier
     }
 
     fun setStateText(text: String) {
-        _state.value = _state.value?.copy(text = text)
+        _stateTextValid.value = if (sizeValidator(text, 512)) {
+            ValidationResult(true)
+        } else {
+            ValidationResult(false, R.string.editor_state_text_invalid)
+        }
+        _stateText.value = text.replace("\n", "").replace("\r", "")
     }
 
     fun setStateType(type: StateType) {
         if (type == StateType.MESSAGE && (_state.value?.type == StateType.OPEN_QUESTION || _state.value?.type == StateType.CLOSED_QUESTION)) {
-            _transitions.value = listOf(TransitionData())
+            _transitions.value = mutableListOf(TransitionData())
         } else if ((type == StateType.OPEN_QUESTION || type == StateType.CLOSED_QUESTION) && _state.value?.type == StateType.MESSAGE) {
-            _transitions.value = oldTransitions.value
+            _transitions.value = oldTransitions.value.toMutableList()
         }
         _state.value = _state.value?.copy(type = type)
     }
@@ -151,7 +215,17 @@ class EditorViewModel(private val repository: EditorRepository) : ViewModel() {
         _transitions.value = _transitions.value.dropLast(1)
     }
 
+    private val _answerTextValid: MutableStateFlow<List<ValidationResult>> = MutableStateFlow(List(8) { ValidationResult(true) })
+    val answerTextValid = _answerTextValid.asStateFlow()
+
     fun setAnswerText(index: Int, text: String) {
+        val newValidations = _answerTextValid.value.toMutableList()
+        newValidations[index] = if (sizeValidator(text, 32)) {
+            ValidationResult(true)
+        } else {
+            ValidationResult(false, R.string.editor_state_text_invalid)
+        }
+        _answerTextValid.value = newValidations
         val newTransitions = _transitions.value.toMutableList()
         newTransitions[index] = newTransitions[index].copy(answer = text)
         _transitions.value = newTransitions
