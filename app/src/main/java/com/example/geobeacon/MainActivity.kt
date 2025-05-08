@@ -24,6 +24,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.geobeacon.data.BluetoothConnectionManager
 import com.example.geobeacon.data.db.SettingsEntity
+import com.example.geobeacon.ui.ConfigurationScreen
 import com.example.geobeacon.ui.EditorScreen
 import com.example.geobeacon.ui.HistoryScreen
 import com.example.geobeacon.ui.MainScreen
@@ -85,7 +86,7 @@ fun MainApp(settingsViewModel: SettingsViewModel, settings: SettingsEntity, blue
                     EditorScreen()
                 }
                 composable(DevScreens.Config.screen.route) {
-                    Text("Config")
+                    ConfigurationScreen(bluetoothManager)
                 }
                 composable(DevScreens.Settings.screen.route) {
                     SettingsScreen(settingsViewModel)

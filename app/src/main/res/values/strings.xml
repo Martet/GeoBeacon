@@ -59,4 +59,10 @@
     <string name="editor_state_identifier_invalid_long">Must be shorten than 16 characters</string>
     <string name="editor_state_identifier_invalid_characters">Must contain only letters, numbers, _, -</string>
     <string name="editor_invalid_empty">Can\'t be empty</string>
+    <string name="password">New password</string>
+    <string name="repeat_password">Repeat password</string>
+    <string name="new_dialog_load">New dialog</string>
+    <string name="name_write_failure">name</string>
+    <string name="password_write_failure">password</string>
+    <string name="dialog_write_failure">dialog</string>
 </resources>

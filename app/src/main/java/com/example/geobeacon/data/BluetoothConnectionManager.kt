@@ -18,20 +18,39 @@ import android.content.Context
 import android.os.Build
 import android.os.ParcelUuid
 import android.util.Log
+import android.util.Xml
 import androidx.annotation.RequiresPermission
+import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.util.UUID
 
 class BluetoothConnectionManager(private val context: Context) {
     val WUART_SERVICE_UUID = UUID.fromString("01ff0100-ba5e-f4ee-5ca1-eb1e5e4b1ce0")
     val WUART_CHARACTERISTIC_UUID = UUID.fromString("01ff0101-ba5e-f4ee-5ca1-eb1e5e4b1ce0")
+
+    val CONFIG_SERVICE_UUID = UUID.fromString("d077defe-750a-fa81-724a-81ca3fe60900")
+    val CONFIG_PASSWORD_UUID = UUID.fromString("d077defe-750a-fa81-724a-81ca3fe60901")
+    val CONFIG_SET_NAME_UUID = UUID.fromString("d077defe-750a-fa81-724a-81ca3fe60902")
+    val CONFIG_SET_PASSWORD_UUID = UUID.fromString("d077defe-750a-fa81-724a-81ca3fe60903")
+    val CONFIG_NOTIFICATION_UUID = UUID.fromString("d077defe-750a-fa81-724a-81ca3fe60904")
+    val CONFIG_DATA_UUID = UUID.fromString("d077defe-750a-fa81-724a-81ca3fe60905")
+
+    val GAP_SERVICE_UUID = UUID.fromString("00001800-0000-1000-8000-00805f9b34fb")
+    val DEVICE_NAME_UUID = UUID.fromString("00002a00-0000-1000-8000-00805f9b34fb")
 
     private val scanSettings = ScanSettings.Builder()
         .setCallbackType(ScanSettings.CALLBACK_TYPE_FIRST_MATCH)
@@ -58,6 +77,8 @@ class BluetoothConnectionManager(private val context: Context) {
     private var lastDisconnectTime: Long = 0
     private var scanning = false
     private var device: BluetoothDevice? = null
+    private var pendingContinuation: CancellableContinuation<Int>? = null
+    private val mutex = Mutex()
 
     private val _deviceName = MutableStateFlow<String?>(null)
     val deviceName: StateFlow<String?> = _deviceName.asStateFlow()
@@ -66,6 +87,7 @@ class BluetoothConnectionManager(private val context: Context) {
     private val _ready = MutableStateFlow(false)
     val ready: StateFlow<Boolean> = _ready.asStateFlow()
     val messageChannel = Channel<String>(Channel.UNLIMITED)
+
 
     @RequiresPermission(allOf = [Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT])
     fun startScan() {
@@ -118,25 +140,50 @@ class BluetoothConnectionManager(private val context: Context) {
         lastDisconnectTime = System.currentTimeMillis()
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-    fun writeCharacteristic(serviceUuid: UUID, charUuid: UUID, data: ByteArray) {
+    suspend fun setConfigurationCharacteristic(charUuid: UUID, data: ByteArray): Int {
+        return mutex.withLock {
+            suspendCancellableCoroutine { continuation ->
+                val success = writeCharacteristic(CONFIG_SERVICE_UUID, charUuid, data, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT)
+                if (success != BluetoothGatt.GATT_SUCCESS) {
+                    continuation.resume(success, onCancellation = null)
+                    return@suspendCancellableCoroutine
+                }
+
+                pendingContinuation = continuation
+            }
+        }
+    }
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    fun writeCharacteristic(serviceUuid: UUID, charUuid: UUID, data: ByteArray, writeType: Int = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE): Int {
         val characteristic = gatt?.getService(serviceUuid)
             ?.getCharacteristic(charUuid)
             ?: throw IllegalStateException("GATT write: Characteristic not found")
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            gatt?.writeCharacteristic(
-                characteristic,
-                data,
-                BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE,
-            )
+            return gatt?.writeCharacteristic(characteristic, data, writeType)
+                ?: BluetoothGatt.GATT_FAILURE
         } else {
             characteristic.writeType = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
             @Suppress("DEPRECATION")
             characteristic.value = data
             @Suppress("DEPRECATION")
-            gatt?.writeCharacteristic(characteristic)
+            return when (gatt?.writeCharacteristic(characteristic)) {
+                true -> BluetoothGatt.GATT_SUCCESS
+                else -> BluetoothGatt.GATT_FAILURE
+            }
         }
+    }
+
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    fun readName(setGatt: BluetoothGatt? = null) {
+        var gatt = gatt
+        if (setGatt != null) {
+            gatt = setGatt
+        }
+        val nameCharacteristic = gatt?.getService(GAP_SERVICE_UUID)?.getCharacteristic(DEVICE_NAME_UUID)
+        gatt?.readCharacteristic(nameCharacteristic)
     }
 
     private val scanCallback = object : ScanCallback() {
@@ -151,6 +198,7 @@ class BluetoothConnectionManager(private val context: Context) {
         }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     private val gattCallback: BluetoothGattCallback = object : BluetoothGattCallback() {
         @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
         override fun onConnectionStateChange(_gatt: BluetoothGatt, status: Int, newState: Int) {
@@ -179,6 +227,8 @@ class BluetoothConnectionManager(private val context: Context) {
             super.onServicesDiscovered(gatt, status)
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 _ready.value = true
+                Log.d("GeoBeacon", "Device short name: ${_deviceName.value}")
+                readName(gatt)
             } else {
                 CoroutineScope(Dispatchers.IO).launch {
                     delay(500)
@@ -187,9 +237,28 @@ class BluetoothConnectionManager(private val context: Context) {
             }
         }
 
-        override fun onCharacteristicRead(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray, status: Int) {
+        override fun onCharacteristicRead(
+            gatt: BluetoothGatt,
+            characteristic: BluetoothGattCharacteristic,
+            value: ByteArray,
+            status: Int
+        ) {
             super.onCharacteristicRead(gatt, characteristic, value, status)
-            Log.d("GeoBeacon", "Characteristic changed: $value")
+            if (status == BluetoothGatt.GATT_SUCCESS && characteristic.uuid == DEVICE_NAME_UUID) {
+                _deviceName.value = value.toString(Charsets.UTF_8)
+                Log.d("GeoBeacon", "Device long name: ${_deviceName.value}")
+            }
+        }
+
+        override fun onCharacteristicWrite(
+            gatt: BluetoothGatt?,
+            characteristic: BluetoothGattCharacteristic?,
+            status: Int
+        ) {
+            super.onCharacteristicWrite(gatt, characteristic, status)
+            Log.d("GeoBeacon", "Characteristic write status: $status")
+            pendingContinuation?.resume(status, onCancellation = null)
+            pendingContinuation = null
         }
     }
 

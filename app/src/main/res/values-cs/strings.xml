@@ -48,4 +48,15 @@
     <string name="editor_state_starting">Počáteční stav</string>
     <string name="editor_state_finishing">Koncový stav</string>
     <string name="state">Stav</string>
+    <string name="editor_state_text_invalid">Vstup je moc dlouhý</string>
+    <string name="editor_state_identifier_invalid_unique">Identifikátor stavu musí být v dialogu unikátní</string>
+    <string name="editor_state_identifier_invalid_long">Musí být kratší než 16 znaků</string>
+    <string name="editor_state_identifier_invalid_characters">Musí obsahovat pouze písmena bez diakritiky, čísla, znaky _ a -</string>
+    <string name="editor_invalid_empty">Nesmí být prázdné</string>
+    <string name="password">Nové heslo</string>
+    <string name="repeat_password">Opakovat heslo</string>
+    <string name="new_dialog_load">Nový dialog</string>
+    <string name="name_write_failure">jméno</string>
+    <string name="password_write_failure">heslo</string>
+    <string name="dialog_write_failure">dialog</string>
 </resources>

@@ -2,6 +2,7 @@ package com.example.geobeacon.ui
 
 import android.annotation.SuppressLint
 import android.util.Log
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -37,7 +38,9 @@ class ChatViewModel(private val repository: ChatRepository, private val bluetoot
 
     init {
         viewModelScope.launch {
-            bluetoothManager.startScan()
+            if (!bluetoothManager.ready.value) {
+                bluetoothManager.startScan()
+            }
 
             launch {
                 bluetoothManager.deviceName.collect {
