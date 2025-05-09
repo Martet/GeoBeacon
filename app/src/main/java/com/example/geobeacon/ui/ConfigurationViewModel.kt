@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 @SuppressLint("MissingPermission")
 class ConfigurationViewModel(private val repository: EditorRepository, private val bluetoothManager: BluetoothConnectionManager) : ViewModel() {
@@ -68,10 +70,34 @@ class ConfigurationViewModel(private val repository: EditorRepository, private v
             }
 
             if (dialog != null) {
+                val fullDialog = repository.getDialogWithStates(dialog.id)
+                if (fullDialog == null) {
+                    _writeFailureResource.value = R.string.dialog_write_failure
+                    return@launch
+                }
+                val dialogBytes = fullDialog.serialize()
+                val notificationBuffer = ByteBuffer.allocate(4)
+                notificationBuffer.order(ByteOrder.LITTLE_ENDIAN)
+
+                var dialogBytesSize: UShort = dialogBytes.size.toUShort()
+
+                var totalPackets: UShort = (dialogBytesSize / bluetoothManager.DIALOG_PACKET_SIZE.toUShort()).toUShort()
+                if (dialogBytesSize.mod(bluetoothManager.DIALOG_PACKET_SIZE.toUInt()) > 0U) {
+                    totalPackets++
+                }
+                dialogBytesSize = (dialogBytesSize + totalPackets).toUShort()
+                notificationBuffer.putShort(dialogBytesSize.toShort())
+                notificationBuffer.putShort(totalPackets.toShort())
+
                 if (bluetoothManager.setConfigurationCharacteristic(
                     bluetoothManager.CONFIG_NOTIFICATION_UUID,
-                    ByteArray(4)
+                    notificationBuffer.array()
                 ) != 0) {
+                    _writeFailureResource.value = R.string.dialog_write_failure
+                    return@launch
+                }
+
+                if (bluetoothManager.transferDialog(dialogBytes, totalPackets.toInt()) != 0) {
                     _writeFailureResource.value = R.string.dialog_write_failure
                     return@launch
                 }
@@ -79,6 +105,10 @@ class ConfigurationViewModel(private val repository: EditorRepository, private v
         }.invokeOnCompletion {
             _transferring.value = false
         }
+    }
+
+    fun clearWriteFailure() {
+        _writeFailureResource.value = null
     }
 
     companion object {

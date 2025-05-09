@@ -52,6 +52,8 @@ class BluetoothConnectionManager(private val context: Context) {
     val GAP_SERVICE_UUID = UUID.fromString("00001800-0000-1000-8000-00805f9b34fb")
     val DEVICE_NAME_UUID = UUID.fromString("00002a00-0000-1000-8000-00805f9b34fb")
 
+    val DIALOG_PACKET_SIZE = 216
+
     private val scanSettings = ScanSettings.Builder()
         .setCallbackType(ScanSettings.CALLBACK_TYPE_FIRST_MATCH)
         .setScanMode(ScanSettings.SCAN_MODE_BALANCED)
@@ -145,14 +147,40 @@ class BluetoothConnectionManager(private val context: Context) {
     suspend fun setConfigurationCharacteristic(charUuid: UUID, data: ByteArray): Int {
         return mutex.withLock {
             suspendCancellableCoroutine { continuation ->
+                Log.d("GeoBeacon", "Setting characteristic $charUuid to $data")
                 val success = writeCharacteristic(CONFIG_SERVICE_UUID, charUuid, data, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT)
                 if (success != BluetoothGatt.GATT_SUCCESS) {
+                    Log.d("GeoBeacon", "Characteristic write failed with $success")
                     continuation.resume(success, onCancellation = null)
                     return@suspendCancellableCoroutine
                 }
 
                 pendingContinuation = continuation
             }
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    suspend fun transferDialog(data: ByteArray, packets: Int): Int = suspendCancellableCoroutine { continuation ->
+        val characteristic = gatt?.getService(CONFIG_SERVICE_UUID)
+            ?.getCharacteristic(CONFIG_NOTIFICATION_UUID)
+            ?: throw IllegalStateException("GATT write: Characteristic not found")
+        pendingContinuation = continuation
+
+        CoroutineScope(continuation.context).launch {
+            for (i in 0 until packets) {
+                Log.d("GeoBeacon", "Transferring packet $i/$packets")
+                val packet = data.copyOfRange(i * DIALOG_PACKET_SIZE, minOf((i + 1) * DIALOG_PACKET_SIZE, data.size))
+                if (writeCharacteristic(CONFIG_SERVICE_UUID, CONFIG_DATA_UUID, data = byteArrayOf(i.toUByte().toByte()) + packet) != BluetoothGatt.GATT_SUCCESS) {
+                    Log.d("GeoBeacon", "Dialog write failed")
+                    continuation.resume(BluetoothGatt.GATT_FAILURE, onCancellation = null)
+                    return@launch
+                }
+                delay(10)
+            }
+            delay(100)
+            gatt?.readCharacteristic(characteristic)
         }
     }
 
@@ -244,9 +272,14 @@ class BluetoothConnectionManager(private val context: Context) {
             status: Int
         ) {
             super.onCharacteristicRead(gatt, characteristic, value, status)
-            if (status == BluetoothGatt.GATT_SUCCESS && characteristic.uuid == DEVICE_NAME_UUID) {
-                _deviceName.value = value.toString(Charsets.UTF_8)
-                Log.d("GeoBeacon", "Device long name: ${_deviceName.value}")
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                if (characteristic.uuid == DEVICE_NAME_UUID) {
+                    _deviceName.value = value.toString(Charsets.UTF_8)
+                    Log.d("GeoBeacon", "Device long name: ${_deviceName.value}")
+                } else if (characteristic.uuid == CONFIG_NOTIFICATION_UUID) {
+                    pendingContinuation?.resume(value[0].toInt(), onCancellation = null)
+                    pendingContinuation = null
+                }
             }
         }
 
@@ -256,9 +289,11 @@ class BluetoothConnectionManager(private val context: Context) {
             status: Int
         ) {
             super.onCharacteristicWrite(gatt, characteristic, status)
-            Log.d("GeoBeacon", "Characteristic write status: $status")
-            pendingContinuation?.resume(status, onCancellation = null)
-            pendingContinuation = null
+            if (listOf(CONFIG_SET_NAME_UUID, CONFIG_SET_PASSWORD_UUID, CONFIG_NOTIFICATION_UUID).contains(characteristic?.uuid)) {
+                Log.d("GeoBeacon", "Characteristic write status: $status")
+                pendingContinuation?.resume(status, onCancellation = null)
+                pendingContinuation = null
+            }
         }
     }
 

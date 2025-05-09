@@ -13,8 +13,12 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
@@ -31,6 +35,7 @@ import com.example.geobeacon.ui.MainScreen
 import com.example.geobeacon.ui.SettingsScreen
 import com.example.geobeacon.ui.SettingsViewModel
 import com.example.geobeacon.ui.theme.GeoBeaconTheme
+import kotlinx.coroutines.delay
 
 val permissions = arrayOf(
     Manifest.permission.BLUETOOTH_SCAN,
@@ -57,7 +62,15 @@ class MainActivity : ComponentActivity() {
                         application.bluetoothManager.startServer()
                     }
                 }
-                MainApp(settingsViewModel, settings, application.bluetoothManager)
+                var showApp by remember { mutableStateOf(false) }
+                LaunchedEffect(Unit) {
+                    delay(1000)
+                    showApp = true
+                }
+
+                if (showApp) {
+                    MainApp(settingsViewModel, settings, application.bluetoothManager)
+                }
             }
         }
     }

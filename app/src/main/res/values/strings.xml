@@ -65,4 +65,7 @@
     <string name="name_write_failure">name</string>
     <string name="password_write_failure">password</string>
     <string name="dialog_write_failure">dialog</string>
+    <string name="error">Error</string>
+    <string name="config_error_message">Couldn\'t set: </string>
+    <string name="confirm">Confirm</string>
 </resources>

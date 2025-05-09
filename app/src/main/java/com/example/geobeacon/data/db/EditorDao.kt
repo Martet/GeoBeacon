@@ -43,6 +43,10 @@ interface EditorDao {
 
     @Transaction
     @Query("SELECT * FROM states WHERE owner_id = :dialogId")
+    suspend fun getStatesWithTransitions(dialogId: Long): List<StateWithTransitions>
+
+    @Transaction
+    @Query("SELECT * FROM states WHERE owner_id = :dialogId")
     fun getStatesWithTransitionsFlow(dialogId: Long): Flow<List<StateWithTransitions>>
 
     @Query("DELETE FROM states WHERE state_id = :id")

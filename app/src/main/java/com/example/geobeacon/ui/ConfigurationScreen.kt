@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -16,6 +17,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -64,6 +66,19 @@ fun ConfigurationScreenReady(viewModel: ConfigurationViewModel) {
     var passwordFieldContent by remember { mutableStateOf("") }
     var passwordRepeatFieldContent by remember { mutableStateOf("") }
     var selectedDialog by remember { mutableStateOf<DialogData?>(null) }
+
+    if (writeFailureResource != null) {
+        AlertDialog(
+            onDismissRequest = { viewModel.clearWriteFailure() },
+            title = { Text(stringResource(R.string.error)) },
+            text = { Text(stringResource(R.string.config_error_message) + " " + stringResource(writeFailureResource!!)) },
+            confirmButton = {
+                TextButton(onClick = { viewModel.clearWriteFailure() }) {
+                    Text(stringResource(R.string.confirm))
+                }
+            }
+        )
+    }
 
     Column {
         TopAppBar(

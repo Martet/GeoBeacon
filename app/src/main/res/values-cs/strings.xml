@@ -59,4 +59,8 @@
     <string name="name_write_failure">jméno</string>
     <string name="password_write_failure">heslo</string>
     <string name="dialog_write_failure">dialog</string>
+    <string name="error">Chyba</string>
+    <string name="error">C</string>
+    <string name="config_error_message">Selhání přenosu pro:</string>
+    <string name="confirm">Potvrdit</string>
 </resources>

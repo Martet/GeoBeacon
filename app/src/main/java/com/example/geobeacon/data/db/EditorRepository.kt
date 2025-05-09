@@ -63,6 +63,13 @@ class EditorRepository(private val dao: EditorDao) {
         return mapDialog(dialog)
     }
 
+    suspend fun getDialogWithStates(id: Long): DialogData? {
+        val dialog = dao.getDialog(id) ?: return null
+        return  mapDialog(dialog).copy(
+            states = dao.getStatesWithTransitions(id).map { mapState(it) }
+        )
+    }
+
     fun getDialogFlow(id: Long): Flow<DialogData?> {
         return dao.getDialogFlow(id).map { dialog ->
             if (dialog == null) {
