@@ -86,8 +86,8 @@ class BluetoothConnectionManager(private val context: Context) {
 
     private val _authorized = MutableStateFlow(false)
     val authorized: StateFlow<Boolean> = _authorized.asStateFlow()
-    private val _authorizationError = MutableSharedFlow<Boolean>(replay = 1)
-    val authorizationError: SharedFlow<Boolean> = _authorizationError.asSharedFlow()
+    private val _authorizationError = MutableSharedFlow<Int>(replay = 1)
+    val authorizationError: SharedFlow<Int> = _authorizationError.asSharedFlow()
     private val _deviceName = MutableStateFlow<String?>(null)
     val deviceName: StateFlow<String?> = _deviceName.asStateFlow()
     private val _deviceAddress = MutableStateFlow<String?>(null)
@@ -151,10 +151,13 @@ class BluetoothConnectionManager(private val context: Context) {
             val res = setConfigurationCharacteristic(CONFIG_PASSWORD_UUID, password.toByteArray())
             if (res == BluetoothGatt.GATT_SUCCESS) {
                 _authorized.value = true
-                _authorizationError.tryEmit(false)
+                _authorizationError.tryEmit(0)
+            } else if (res == BluetoothGatt.GATT_INSUFFICIENT_AUTHORIZATION) {
+                _authorized.value = false
+                _authorizationError.tryEmit(1)
             } else {
                 _authorized.value = false
-                _authorizationError.tryEmit(true)
+                _authorizationError.tryEmit(2)
             }
         }
     }

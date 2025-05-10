@@ -107,10 +107,10 @@ fun ConfigurationScreen(bluetoothManager: BluetoothConnectionManager) {
 }
 
 @Composable
-fun AuthorizationScreen(errorFlow: SharedFlow<Boolean>, onAuthorize: (String) -> Unit) {
+fun AuthorizationScreen(errorFlow: SharedFlow<Int>, onAuthorize: (String) -> Unit) {
     var passwordText by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf(0) }
 
     LaunchedEffect(Unit) {
         errorFlow.collect {
@@ -134,10 +134,16 @@ fun AuthorizationScreen(errorFlow: SharedFlow<Boolean>, onAuthorize: (String) ->
                 value = passwordText,
                 onValueChange = {
                     passwordText = it
-                    error = false
+                    error = 0
                 },
-                isError = error,
-                supportingText = { if (error) Text(stringResource(R.string.wrong_password)) },
+                isError = error > 0,
+                supportingText = {
+                    if (error == 1) {
+                        Text(stringResource(R.string.wrong_password))
+                    } else if (error == 2) {
+                        Text(stringResource(R.string.authorization_disabled))
+                    }
+                },
                 label = { Text(stringResource(R.string.password)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 keyboardActions = KeyboardActions(onDone = {

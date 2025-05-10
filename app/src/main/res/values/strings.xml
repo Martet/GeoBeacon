@@ -95,4 +95,5 @@
     <string name="editor_dialog_validation_warnings">Warnings:</string>
     <string name="editor_dialog_validation_valid">No problems found.</string>
     <string name="config_dialog_dropdown_info">Only error-free checked dialogs are shown.</string>
+    <string name="authorization_disabled">Configuration is currently disabled</string>
 </resources>

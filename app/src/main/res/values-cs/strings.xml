@@ -89,4 +89,5 @@
     <string name="editor_dialog_validation_warnings">Varování:</string>
     <string name="editor_dialog_validation_valid">Žádné problémy nebyly nalezeny.</string>
     <string name="config_dialog_dropdown_info">Jsou zobrazeny pouze ověřené dialogy bez chyb.</string>
+    <string name="authorization_disabled">Konfigurace není povolená</string>
 </resources>
