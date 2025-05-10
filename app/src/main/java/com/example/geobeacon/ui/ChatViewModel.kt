@@ -2,7 +2,6 @@ package com.example.geobeacon.ui
 
 import android.annotation.SuppressLint
 import android.util.Log
-import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -69,8 +68,8 @@ class ChatViewModel(private val repository: ChatRepository, private val bluetoot
             }
 
             launch {
-                for (message in bluetoothManager.messageChannel) {
-                    val trimmedMessage = message.trim()
+                bluetoothManager.messageFlow.collect {
+                    val trimmedMessage = it.trim()
                     Log.d("GeoBeacon", "Message received: $trimmedMessage")
 
                     when (trimmedMessage) {

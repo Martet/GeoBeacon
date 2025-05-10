@@ -24,7 +24,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -95,7 +94,8 @@ class BluetoothConnectionManager(private val context: Context) {
     val deviceAddress: StateFlow<String?> = _deviceAddress.asStateFlow()
     private val _ready = MutableStateFlow(false)
     val ready: StateFlow<Boolean> = _ready.asStateFlow()
-    val messageChannel = Channel<String>(Channel.UNLIMITED)
+    private val _messageFlow = MutableSharedFlow<String>(replay = 10, extraBufferCapacity = 3)
+    val messageFlow: SharedFlow<String> = _messageFlow.asSharedFlow()
 
 
     @RequiresPermission(allOf = [Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT])
@@ -126,13 +126,6 @@ class BluetoothConnectionManager(private val context: Context) {
     fun startServer() {
         gattServer = bluetoothManager?.openGattServer(context, gattServerCallback)
         gattServer?.addService(wuartService)
-    }
-
-    @RequiresPermission(allOf = [Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT])
-    fun destroy() {
-        stopScan()
-        gattServer?.close()
-        disconnect()
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
@@ -259,7 +252,6 @@ class BluetoothConnectionManager(private val context: Context) {
             super.onScanResult(callbackType, result)
             stopScan()
             device = result.device
-            _deviceName.value = result.scanRecord?.deviceName
             _deviceAddress.value = result.device.address
             connect(result.device)
         }
@@ -362,7 +354,7 @@ class BluetoothConnectionManager(private val context: Context) {
                 value
             )
             if (value != null) {
-                messageChannel.trySend(String(value))
+                _messageFlow.tryEmit(String(value))
             }
         }
     }

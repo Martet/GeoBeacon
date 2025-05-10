@@ -63,7 +63,7 @@ class ConfigurationViewModel(private val repository: EditorRepository, private v
 
     fun setPasswordFieldContent(content: String) {
         _passwordFieldContent.value = content
-        _passwordFieldError.value = content.toByteArray().size > bluetoothManager.MAX_PASSWORD_SIZE
+        _passwordFieldError.value = content.toByteArray().size + 1 > bluetoothManager.MAX_PASSWORD_SIZE
         if (_passwordRepeatFieldContent.value != "") {
             _passwordRepeatFieldError.value = content != _passwordRepeatFieldContent.value
         }
@@ -97,7 +97,7 @@ class ConfigurationViewModel(private val repository: EditorRepository, private v
             if (_passwordFieldContent.value != "") {
                 if (bluetoothManager.setConfigurationCharacteristic(
                     bluetoothManager.CONFIG_SET_PASSWORD_UUID,
-                    _passwordFieldContent.value.toByteArray()
+                    _passwordFieldContent.value.toByteArray() + 0.toByte()
                 ) != 0) {
                     _writeFailureResource.value = R.string.password_write_failure
                     return@launch
