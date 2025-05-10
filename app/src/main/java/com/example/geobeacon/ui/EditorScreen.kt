@@ -118,7 +118,6 @@ fun DialogList(dialogs: List<DialogData>, listState: LazyListState, clickedDetai
     Column {
         TopAppBar(
             title = { Text(stringResource(R.string.editor_title)) },
-            expandedHeight = 24.dp,
         )
         Box(modifier = Modifier.padding(16.dp).fillMaxSize()) {
             if (dialogs.isEmpty()) {
@@ -237,7 +236,6 @@ fun StateList(states: List<StateData>, dialog: DialogData, listState: LazyListSt
     Column {
         TopAppBar(
             title = { Text(stringResource(R.string.dialog) + ": " + dialog.name, overflow = TextOverflow.Ellipsis) },
-            expandedHeight = 24.dp,
             navigationIcon = {
                 IconButton(onClick = { viewModel.setDialog(null) }) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -305,11 +303,13 @@ fun StateList(states: List<StateData>, dialog: DialogData, listState: LazyListSt
                     }
                 }
 
-                FloatingActionButton(
-                    onClick = { showNewStateDialog = true },
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Add")
+                if (states.size <= 16) {
+                    FloatingActionButton(
+                        onClick = { showNewStateDialog = true },
+                        modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Add")
+                    }
                 }
             }
         }
@@ -391,7 +391,6 @@ fun StateDetail(state: StateData, viewModel: EditorViewModel) {
     Column {
         TopAppBar(
             title = { Text(stringResource(R.string.state) + ": " + state.name, overflow = TextOverflow.Ellipsis) },
-            expandedHeight = 24.dp,
             navigationIcon = {
                 IconButton(onClick = { showBackState = true }) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -439,7 +438,7 @@ fun StateDetail(state: StateData, viewModel: EditorViewModel) {
                     onValueChange = { viewModel.setStateText(it) },
                     singleLine = true,
                     isError = !textValid.valid,
-                    supportingText = { if (!textValid.valid) Text(stringResource(identifierValid.errorStringResource!!)) },
+                    supportingText = { if (!textValid.valid) Text(stringResource(textValid.errorStringResource!!)) },
                     label = {
                         if (state.type == StateType.MESSAGE) {
                             Text(stringResource(R.string.editor_state_text))
@@ -619,6 +618,9 @@ fun <T> InputDropdownMenu(
                         expanded = false
                     }
                 )
+                if (options.indexOf(item) < options.size - 1) {
+                    HorizontalDivider()
+                }
             }
         }
     }

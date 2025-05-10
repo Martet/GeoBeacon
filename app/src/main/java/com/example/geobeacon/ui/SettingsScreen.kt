@@ -1,11 +1,14 @@
 package com.example.geobeacon.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Switch
@@ -25,37 +28,42 @@ import com.example.geobeacon.R
 fun SettingsScreen(viewModel: SettingsViewModel) {
     val settings by viewModel.settings.collectAsState()
 
-    Column {
-        TopAppBar(
-            title = { Text(stringResource(R.string.settings_title)) },
-            expandedHeight = 24.dp,
-        )
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            SettingsItem {
-                Text(stringResource(R.string.settings_developer))
-                Switch(
-                    checked = settings.devMode,
-                    onCheckedChange = { viewModel.switchDevMode(it) }
-                )
-            }
-            HorizontalDivider()
-            SettingsItem {
-                Text(stringResource(R.string.settings_respect_theme))
-                Switch(
-                    checked = settings.respectSystemTheme,
-                    onCheckedChange = { viewModel.switchRespectSystemTheme(it) }
-                )
-            }
-            SettingsItem {
-                Text(stringResource(R.string.settings_dark_mode))
-                Switch(
-                    checked = settings.darkMode,
-                    onCheckedChange = { viewModel.switchDarkMode(it) },
-                    enabled = !settings.respectSystemTheme
-                )
+    if (settings == null) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+        }
+    } else {
+        Column {
+            TopAppBar(
+                title = { Text(stringResource(R.string.settings_title)) },
+            )
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+                SettingsItem {
+                    Text(stringResource(R.string.settings_developer))
+                    Switch(
+                        checked = settings!!.devMode,
+                        onCheckedChange = { viewModel.switchDevMode(it) }
+                    )
+                }
+                HorizontalDivider()
+                SettingsItem {
+                    Text(stringResource(R.string.settings_respect_theme))
+                    Switch(
+                        checked = settings!!.respectSystemTheme,
+                        onCheckedChange = { viewModel.switchRespectSystemTheme(it) }
+                    )
+                }
+                SettingsItem {
+                    Text(stringResource(R.string.settings_dark_mode))
+                    Switch(
+                        checked = settings!!.darkMode,
+                        onCheckedChange = { viewModel.switchDarkMode(it) },
+                        enabled = !settings!!.respectSystemTheme
+                    )
+                }
             }
         }
     }

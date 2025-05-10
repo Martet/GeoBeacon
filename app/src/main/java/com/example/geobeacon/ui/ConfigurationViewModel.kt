@@ -21,14 +21,27 @@ import java.nio.ByteOrder
 
 @SuppressLint("MissingPermission")
 class ConfigurationViewModel(private val repository: EditorRepository, private val bluetoothManager: BluetoothConnectionManager) : ViewModel() {
-    private val _deviceName = MutableStateFlow<String?>(null)
-    val deviceName: StateFlow<String?> = _deviceName.asStateFlow()
+    val deviceName = bluetoothManager.deviceName
     private val _writeFailureResource = MutableStateFlow<Int?>(null)
     val writeFailureResource: StateFlow<Int?> = _writeFailureResource.asStateFlow()
     private val _transferring = MutableStateFlow(false)
     val transferring: StateFlow<Boolean> = _transferring.asStateFlow()
 
-    val ready = bluetoothManager.ready
+    private val _nameFieldContent = MutableStateFlow("")
+    val nameFieldContent: StateFlow<String> = _nameFieldContent.asStateFlow()
+    private val _nameFieldError = MutableStateFlow(false)
+    val nameFieldError: StateFlow<Boolean> = _nameFieldError.asStateFlow()
+    private val _passwordFieldContent = MutableStateFlow("")
+    val passwordFieldContent: StateFlow<String> = _passwordFieldContent.asStateFlow()
+    private val _passwordFieldError = MutableStateFlow(false)
+    val passwordFieldError: StateFlow<Boolean> = _passwordFieldError.asStateFlow()
+    private val _passwordRepeatFieldContent = MutableStateFlow("")
+    val passwordRepeatFieldContent: StateFlow<String> = _passwordRepeatFieldContent.asStateFlow()
+    private val _passwordRepeatFieldError = MutableStateFlow(false)
+    val passwordRepeatFieldError: StateFlow<Boolean> = _passwordRepeatFieldError.asStateFlow()
+    private val _selectedDialog = MutableStateFlow<DialogData?>(null)
+    val selectedDialog: StateFlow<DialogData?> = _selectedDialog.asStateFlow()
+
     val dialogs = repository.dialogsFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), listOf())
 
@@ -37,40 +50,61 @@ class ConfigurationViewModel(private val repository: EditorRepository, private v
             if (!bluetoothManager.ready.value) {
                 bluetoothManager.startScan()
             }
-
-            bluetoothManager.deviceName.collect {
-                _deviceName.value = it
-            }
         }
     }
 
-    fun transferConfig(name: String, password: String, repeatPassword: String, dialog: DialogData?) {
+    fun setNameFieldContent(content: String) {
+        _nameFieldContent.value = content
+        _nameFieldError.value = content.toByteArray().size > bluetoothManager.MAX_NAME_SIZE
+    }
+
+    fun setPasswordFieldContent(content: String) {
+        _passwordFieldContent.value = content
+        _passwordFieldError.value = content.toByteArray().size > bluetoothManager.MAX_PASSWORD_SIZE
+        if (_passwordRepeatFieldContent.value != "") {
+            _passwordRepeatFieldError.value = content != _passwordRepeatFieldContent.value
+        }
+    }
+
+    fun setPasswordRepeatFieldContent(content: String) {
+        _passwordRepeatFieldContent.value = content
+        _passwordRepeatFieldError.value = content != _passwordFieldContent.value
+    }
+
+    fun selectDialog(dialog: DialogData?) {
+        _selectedDialog.value = dialog
+    }
+
+    fun transferConfig() {
         _transferring.value = true
 
         viewModelScope.launch {
-            if (name != deviceName.value) {
+            if (_nameFieldContent.value != "") {
                 if (bluetoothManager.setConfigurationCharacteristic(
                     bluetoothManager.CONFIG_SET_NAME_UUID,
-                    name.toByteArray()
+                    _nameFieldContent.value.toByteArray()
                 ) != 0) {
                     _writeFailureResource.value = R.string.name_write_failure
                     return@launch
                 }
                 bluetoothManager.readName()
+                _nameFieldContent.value = ""
             }
 
-            if (password != "") {
+            if (_passwordFieldContent.value != "") {
                 if (bluetoothManager.setConfigurationCharacteristic(
                     bluetoothManager.CONFIG_SET_PASSWORD_UUID,
-                    password.toByteArray()
+                    _passwordFieldContent.value.toByteArray()
                 ) != 0) {
                     _writeFailureResource.value = R.string.password_write_failure
                     return@launch
                 }
+                _passwordFieldContent.value = ""
+                _passwordRepeatFieldContent.value = ""
             }
 
-            if (dialog != null) {
-                val fullDialog = repository.getDialogWithStates(dialog.id)
+            if (_selectedDialog.value != null) {
+                val fullDialog = repository.getDialogWithStates(_selectedDialog.value!!.id)
                 if (fullDialog == null) {
                     _writeFailureResource.value = R.string.dialog_write_failure
                     return@launch
@@ -101,6 +135,7 @@ class ConfigurationViewModel(private val repository: EditorRepository, private v
                     _writeFailureResource.value = R.string.dialog_write_failure
                     return@launch
                 }
+                _selectedDialog.value = null
             }
         }.invokeOnCompletion {
             _transferring.value = false
@@ -109,6 +144,15 @@ class ConfigurationViewModel(private val repository: EditorRepository, private v
 
     fun clearWriteFailure() {
         _writeFailureResource.value = null
+    }
+
+    fun authorize(password: String) {
+        bluetoothManager.authorize(password)
+    }
+
+    fun reconnect() {
+        bluetoothManager.disconnect()
+        bluetoothManager.startScan()
     }
 
     companion object {

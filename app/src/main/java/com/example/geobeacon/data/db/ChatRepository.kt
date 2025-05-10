@@ -44,9 +44,9 @@ class ChatRepository(private val dao: ChatDao) {
         }
     }
 
-    suspend fun getLastConversation(address: String, name: String): ConversationData {
+    suspend fun getLastConversation(address: String, name: String, forceNew: Boolean = false): ConversationData {
         val conversation = dao.getLastActiveConversation(address)
-        if (conversation == null) {
+        if (conversation == null || forceNew) {
             var conversationId: Long = 0
             if (address != "" && name != "")
                 conversationId = dao.insertConversation(

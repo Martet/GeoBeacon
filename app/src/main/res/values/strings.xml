@@ -59,7 +59,7 @@
     <string name="editor_state_identifier_invalid_long">Must be shorten than 16 characters</string>
     <string name="editor_state_identifier_invalid_characters">Must contain only letters, numbers, _, -</string>
     <string name="editor_invalid_empty">Can\'t be empty</string>
-    <string name="password">New password</string>
+    <string name="new_password">New password</string>
     <string name="repeat_password">Repeat password</string>
     <string name="new_dialog_load">New dialog</string>
     <string name="name_write_failure">name</string>
@@ -68,4 +68,11 @@
     <string name="error">Error</string>
     <string name="config_error_message">Couldn\'t set: </string>
     <string name="confirm">Confirm</string>
+    <string name="authorize">Authorization</string>
+    <string name="wrong_password">Incorrect</string>
+    <string name="password">Password</string>
+    <string name="login">Log in</string>
+    <string name="new_name">New name</string>
+    <string name="passwords_do_not_match">Passwords do not match</string>
+    <string name="too_long">Input too long</string>
 </resources>

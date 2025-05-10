@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.geobeacon.GeoBeaconApp
@@ -82,7 +83,6 @@ fun ConversationList(conversations: List<ConversationData>, listState: LazyListS
     Column {
         TopAppBar(
             title = { Text(text = stringResource(R.string.history_title)) },
-            expandedHeight = 24.dp,
         )
         if (conversations.isEmpty()) {
             Box(
@@ -157,8 +157,7 @@ fun ConversationDetail(conversation: ConversationData, onDelete: () -> Unit, onB
 
     Column {
         TopAppBar(
-            title = { Text(conversation.name) },
-            expandedHeight = 24.dp,
+            title = { Text(conversation.name, overflow = TextOverflow.Ellipsis) },
             navigationIcon = {
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")

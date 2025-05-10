@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.geobeacon.GeoBeaconApp
@@ -52,12 +53,12 @@ fun MainScreen(bluetoothManager: BluetoothConnectionManager) {
     val context = LocalContext.current
     val application = context.applicationContext as GeoBeaconApp
     val viewModel: ChatViewModel = viewModel(factory = ChatViewModel.Factory(application.chatRepository, bluetoothManager))
-    val connectedDevice by viewModel.deviceName.collectAsState()
+    val ready by bluetoothManager.ready.collectAsState()
 
-    if (connectedDevice == null) {
-        ScanningScreen()
-    } else {
+    if (ready) {
         ChatScreen(viewModel)
+    } else {
+        ScanningScreen()
     }
 }
 
@@ -106,8 +107,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
 
     Column {
         TopAppBar(
-            title = { Text(deviceName.toString()) },
-            expandedHeight = 24.dp,
+            title = { Text(deviceName.toString(), overflow = TextOverflow.Ellipsis) },
             actions = {
                 if (enableReconnect) {
                     IconButton(onClick = { viewModel.resetConversation() }) {

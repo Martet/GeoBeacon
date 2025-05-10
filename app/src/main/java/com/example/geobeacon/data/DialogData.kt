@@ -48,7 +48,7 @@ data class StateData(
 ) {
     fun getQuestionByteArray(): ByteArray {
         return if (type == StateType.CLOSED_QUESTION) {
-            answers.foldIndexed("$text\n") { i, acc, transition -> acc + "$i) ${transition.answer}\n" }
+            answers.foldIndexed("$text\n") { i, acc, transition -> acc + "${i + 1}) ${transition.answer}\n" }
         } else {
             "$text\n"
         }.toByteArray() + 0.toByte()

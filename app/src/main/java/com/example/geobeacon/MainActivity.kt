@@ -3,25 +3,28 @@ package com.example.geobeacon
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -35,7 +38,6 @@ import com.example.geobeacon.ui.MainScreen
 import com.example.geobeacon.ui.SettingsScreen
 import com.example.geobeacon.ui.SettingsViewModel
 import com.example.geobeacon.ui.theme.GeoBeaconTheme
-import kotlinx.coroutines.delay
 
 val permissions = arrayOf(
     Manifest.permission.BLUETOOTH_SCAN,
@@ -52,24 +54,26 @@ class MainActivity : ComponentActivity() {
             val settingsViewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory(application.settingsRepository))
             val settings by settingsViewModel.settings.collectAsState()
 
-            GeoBeaconTheme(
-                darkTheme = if (settings.respectSystemTheme) isSystemInDarkTheme() else settings.darkMode
-            ) {
-                if (permissions.all {
-                        ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
-                    }) {
-                    if (application.bluetoothManager.gattServer == null){
-                        application.bluetoothManager.startServer()
-                    }
-                }
-                var showApp by remember { mutableStateOf(false) }
-                LaunchedEffect(Unit) {
-                    delay(1000)
-                    showApp = true
-                }
+            settings?.let { settings ->
+                val darkTheme = if (settings.respectSystemTheme) isSystemInDarkTheme() else settings.darkMode
 
-                if (showApp) {
+                GeoBeaconTheme(
+                    darkTheme = darkTheme
+                ) {
+                    WindowInsetsControllerCompat(window, window.decorView).isAppearanceLightStatusBars = !darkTheme
+                    if (permissions.all {
+                            ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+                        }) {
+                        if (application.bluetoothManager.gattServer == null){
+                            application.bluetoothManager.startServer()
+                        }
+                    }
+
                     MainApp(settingsViewModel, settings, application.bluetoothManager)
+                }
+            } ?: run {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
             }
         }
@@ -86,13 +90,16 @@ fun MainApp(settingsViewModel: SettingsViewModel, settings: SettingsEntity, blue
             BottomNavigationBar(navController = navController, devMode = settings.devMode)
         }
     ) { padding ->
+        Log.d("GeoBeacon", "Padding: $padding")
         NavHost(
             navController,
             startDestination = when (settings.devMode) {
                 true -> DevScreens.Config.screen.route
                 false -> Screens.Chat.screen.route
             },
-            modifier = Modifier.padding(padding)
+            modifier = Modifier
+                .padding(bottom = padding.calculateBottomPadding())
+                .windowInsetsPadding(WindowInsets.statusBars)
         ) {
             if (settings.devMode) {
                 composable(DevScreens.Dialog.screen.route) {
