@@ -4,6 +4,7 @@ import com.example.geobeacon.data.DialogData
 import com.example.geobeacon.data.StateData
 import com.example.geobeacon.data.StateType
 import com.example.geobeacon.data.TransitionData
+import com.example.geobeacon.data.ValidDialogStatus
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.util.Date
@@ -19,7 +20,8 @@ class EditorRepository(private val dao: EditorDao) {
             },
             dao.getState(dialog.endState)?.let {
                 StateData(it.id, it.name, it.text, StateType.fromInt(it.type)!!)
-            }
+            },
+            validationStatus = ValidDialogStatus.fromInt(dialog.validationStatus)
         )
     }
 
@@ -43,7 +45,8 @@ class EditorRepository(private val dao: EditorDao) {
             DialogData(
                 dialogEntity.id,
                 dialogEntity.name,
-                Date(dialogEntity.timestamp)
+                Date(dialogEntity.timestamp),
+                validationStatus = ValidDialogStatus.fromInt(dialogEntity.validationStatus)
             )
         }
     }
@@ -136,5 +139,10 @@ class EditorRepository(private val dao: EditorDao) {
     suspend fun setFinishState(state: StateData, dialogId: Long) {
         val dialog = dao.getDialog(dialogId) ?: throw Exception("Dialog not found")
         dao.updateDialog(dialog.copy(endState = state.id))
+    }
+
+    suspend fun setDialogValidation(status: ValidDialogStatus, dialogId: Long) {
+        val dialog = dao.getDialog(dialogId) ?: throw Exception("Dialog not found")
+        dao.updateDialog(dialog.copy(validationStatus = status.ordinal))
     }
 }

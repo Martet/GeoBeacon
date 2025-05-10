@@ -103,6 +103,7 @@ class BluetoothConnectionManager(private val context: Context) {
         if (!scanning) {
             scanning = true
             CoroutineScope(Dispatchers.IO).launch {
+                Log.d("GeoBeacon", "Started scanning")
                 if (System.currentTimeMillis() - lastDisconnectTime < 5000) {
                     delay(5000)
                 }
@@ -266,7 +267,7 @@ class BluetoothConnectionManager(private val context: Context) {
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val gattCallback: BluetoothGattCallback = object : BluetoothGattCallback() {
-        @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+        @RequiresPermission(allOf = [Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT])
         override fun onConnectionStateChange(_gatt: BluetoothGatt, status: Int, newState: Int) {
             super.onConnectionStateChange(_gatt, status, newState)
             when (newState) {
@@ -275,15 +276,11 @@ class BluetoothConnectionManager(private val context: Context) {
                     _gatt.discoverServices()
                 }
                 BluetoothProfile.STATE_DISCONNECTED -> {
-                    CoroutineScope(Dispatchers.IO).launch {
-                        delay(500)
-                        if (bluetoothManager.getConnectionState(device, BluetoothProfile.GATT) == BluetoothProfile.STATE_DISCONNECTED) {
-                            _gatt.close()
-                            _ready.value = false
-                            delay(500)
-                            gatt = device?.connectGatt(context, false, gattCallback)
-                        }
-                    }
+                    _ready.value = false
+                    _authorized.value = false
+                    _gatt.close()
+                    gatt = null
+                    startScan()
                 }
             }
         }

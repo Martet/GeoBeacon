@@ -13,6 +13,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,7 +33,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -74,6 +74,7 @@ import com.example.geobeacon.data.StateData
 import com.example.geobeacon.data.StateType
 import com.example.geobeacon.data.TransitionData
 import com.example.geobeacon.data.ValidationResult
+import com.example.geobeacon.data.toColor
 import com.example.geobeacon.data.toStringResource
 import kotlinx.coroutines.launch
 import java.text.DateFormat
@@ -87,6 +88,7 @@ fun EditorScreen() {
 
     val dialogs by viewModel.dialogs.collectAsState()
     val selectedDialog by viewModel.dialog.collectAsState()
+    val validationResults by viewModel.dialogValidationResults.collectAsState()
 
     val listState = rememberLazyListState()
 
@@ -96,7 +98,8 @@ fun EditorScreen() {
                 dialogs = dialogs,
                 listState = listState,
                 clickedDetail = { viewModel.setDialog(it) },
-                onNewDialog = { viewModel.newDialog(it) }
+                onNewDialog = { viewModel.newDialog(it) },
+                onValidate = { viewModel.validateDialog(it) }
             )
         } else {
             DialogDetail(
@@ -105,11 +108,53 @@ fun EditorScreen() {
             )
         }
     }
+
+    if (validationResults.isNotEmpty()) {
+        AlertDialog(
+            onDismissRequest = { viewModel.resetValidationResults() },
+            title = { Text(stringResource(R.string.editor_dialog_validation_results)) },
+            confirmButton = {
+                TextButton(onClick = { viewModel.resetValidationResults() }) {
+                    Text(stringResource(R.string.confirm))
+                }
+            },
+            text = {
+                Column {
+                    val errors = validationResults.filter { !it.valid }
+                    val warnings = validationResults.filter { it.warning }
+                    if (errors.isNotEmpty()) {
+                        Text(stringResource(R.string.editor_dialog_validation_errors))
+                        errors.forEach {
+                            Text(stringResource(it.errorStringResource!!, it.additionalString))
+                        }
+                        if (warnings.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                    }
+                    if (warnings.isNotEmpty()) {
+                        Text(stringResource(R.string.editor_dialog_validation_warnings))
+                        warnings.forEach {
+                            Text(stringResource(it.errorStringResource!!, it.additionalString))
+                        }
+                    }
+                    if (errors.isEmpty() && warnings.isEmpty()) {
+                        Text(stringResource(R.string.editor_dialog_validation_valid))
+                    }
+                }
+            }
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DialogList(dialogs: List<DialogData>, listState: LazyListState, clickedDetail: (DialogData) -> Unit, onNewDialog: (String) -> Unit) {
+fun DialogList(
+    dialogs: List<DialogData>,
+    listState: LazyListState,
+    clickedDetail: (DialogData) -> Unit,
+    onNewDialog: (String) -> Unit,
+    onValidate: (DialogData) -> Unit
+) {
     val dateFormatter = remember { DateFormat.getDateInstance(DateFormat.SHORT) }
     val timeFormatter = remember { DateFormat.getTimeInstance(DateFormat.SHORT) }
 
@@ -138,7 +183,8 @@ fun DialogList(dialogs: List<DialogData>, listState: LazyListState, clickedDetai
                             dialog = dialogs[i],
                             df = dateFormatter,
                             tf = timeFormatter,
-                            onClick = clickedDetail
+                            onClick = clickedDetail,
+                            onValidate = onValidate
                         )
                     }
                 }
@@ -168,7 +214,8 @@ fun DialogItem(
     dialog: DialogData,
     df: DateFormat,
     tf: DateFormat,
-    onClick: (DialogData) -> Unit
+    onClick: (DialogData) -> Unit,
+    onValidate: (DialogData) -> Unit
 ) {
     Row(
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -185,19 +232,28 @@ fun DialogItem(
             )
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            if (false) {
-                Icon(
-                    imageVector = Icons.Filled.Warning,
-                    contentDescription = "Incomplete conversation",
-                    modifier = Modifier.size(16.dp)
-                )
-            }
+            ValidationStatus(dialog = dialog, onValidate = onValidate)
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = "Edit dialog",
                 modifier = Modifier.size(32.dp)
             )
         }
+    }
+}
+
+@Composable
+fun ValidationStatus(dialog: DialogData, onValidate: (DialogData) -> Unit) {
+    TextButton(
+        onClick = { onValidate(dialog) },
+        shape = MaterialTheme.shapes.small,
+        border = BorderStroke(1.dp, dialog.validationStatus.toColor())
+    ) {
+        Text(
+            stringResource(dialog.validationStatus.toStringResource()),
+            style = MaterialTheme.typography.labelLarge,
+            color = dialog.validationStatus.toColor()
+        )
     }
 }
 
@@ -242,6 +298,7 @@ fun StateList(states: List<StateData>, dialog: DialogData, listState: LazyListSt
                 }
             },
             actions = {
+                ValidationStatus(dialog = dialog, onValidate = { viewModel.validateDialog(dialog) })
                 IconButton(onClick = { showDeleteDialog = true }) {
                     Icon(Icons.Default.Delete, tint = Color.Red, contentDescription = "Delete")
                 }
@@ -354,12 +411,10 @@ fun StateItem(state: StateData, onClick: () -> Unit) {
             )
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            if (false) {
-                Icon(
-                    imageVector = Icons.Filled.Warning,
-                    contentDescription = "Incomplete conversation",
-                    modifier = Modifier.size(16.dp)
-                )
+            when (state.type) {
+                StateType.OPEN_QUESTION -> Icon(painterResource(R.drawable.outline_indeterminate_question_box_24), stringResource(R.string.editor_state_type_open_question))
+                StateType.CLOSED_QUESTION -> Icon(painterResource(R.drawable.outline_checklist_24), stringResource(R.string.editor_state_type_closed_question))
+                StateType.MESSAGE -> Icon(painterResource(R.drawable.outline_chat_24), stringResource(R.string.editor_state_type_message))
             }
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
@@ -584,7 +639,9 @@ fun <T> InputDropdownMenu(
     onOptionSelected: (T) -> Unit,
     optionLabel: @Composable (T) -> String,
     modifier: Modifier = Modifier,
-    supportingText: @Composable (() -> Unit)? = null
+    supportingText: @Composable (() -> Unit)? = null,
+    trailingIcon: @Composable (() -> Unit)? = null,
+    iconCondition: (T?) -> Boolean = { false }
 ) {
     var expanded by remember { mutableStateOf(false) }
     val selectedText = if (selectedOption == null) " " else optionLabel(selectedOption)
@@ -600,7 +657,13 @@ fun <T> InputDropdownMenu(
             label = { Text(label) },
             supportingText = supportingText,
             trailingIcon = {
-                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                val showIcon = trailingIcon != null && iconCondition(selectedOption)
+                Row(modifier = Modifier.padding(end = if (showIcon) 12.dp else 0.dp)) {
+                    if (showIcon) {
+                        trailingIcon()
+                    }
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                }
             },
             modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable)
         )
@@ -610,15 +673,16 @@ fun <T> InputDropdownMenu(
             onDismissRequest = { expanded = false },
             modifier = Modifier.exposedDropdownSize()
         ) {
-            options.forEach { item ->
+            options.forEachIndexed { i, item ->
                 DropdownMenuItem(
                     text = { Text(optionLabel(item)) },
                     onClick = {
                         onOptionSelected(item)
                         expanded = false
-                    }
+                    },
+                    trailingIcon = if (iconCondition(item)) trailingIcon else null,
                 )
-                if (options.indexOf(item) < options.size - 1) {
+                if (options.lastIndex != i) {
                     HorizontalDivider()
                 }
             }

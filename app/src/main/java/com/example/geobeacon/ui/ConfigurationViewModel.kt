@@ -9,11 +9,13 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.geobeacon.R
 import com.example.geobeacon.data.BluetoothConnectionManager
 import com.example.geobeacon.data.DialogData
+import com.example.geobeacon.data.ValidDialogStatus
 import com.example.geobeacon.data.db.EditorRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.nio.ByteBuffer
@@ -42,8 +44,9 @@ class ConfigurationViewModel(private val repository: EditorRepository, private v
     private val _selectedDialog = MutableStateFlow<DialogData?>(null)
     val selectedDialog: StateFlow<DialogData?> = _selectedDialog.asStateFlow()
 
-    val dialogs = repository.dialogsFlow
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), listOf())
+    val dialogs = repository.dialogsFlow.map {
+        it.filter { it.validationStatus in listOf(ValidDialogStatus.VALID, ValidDialogStatus.WARNING) }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), listOf())
 
     init {
         viewModelScope.launch {

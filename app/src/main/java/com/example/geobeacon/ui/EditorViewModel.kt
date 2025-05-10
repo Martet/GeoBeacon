@@ -10,6 +10,7 @@ import com.example.geobeacon.data.DialogData
 import com.example.geobeacon.data.StateData
 import com.example.geobeacon.data.StateType
 import com.example.geobeacon.data.TransitionData
+import com.example.geobeacon.data.ValidDialogStatus
 import com.example.geobeacon.data.ValidationResult
 import com.example.geobeacon.data.db.EditorRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -64,6 +65,9 @@ class EditorViewModel(private val repository: EditorRepository) : ViewModel() {
     private val _stateText: MutableStateFlow<String> = MutableStateFlow("")
     val stateText = _stateText.asStateFlow()
 
+    private val _dialogValidationResults = MutableStateFlow<List<ValidationResult>>(emptyList())
+    val dialogValidationResults = _dialogValidationResults.asStateFlow()
+
     private var oldIsModified = false
 
     val isModified = combine(_state, oldState, _transitions, oldTransitions, _stateIdentifier, _stateText) {
@@ -103,6 +107,7 @@ class EditorViewModel(private val repository: EditorRepository) : ViewModel() {
         viewModelScope.launch {
             _state.value = null
             repository.deleteState(stateId)
+            repository.setDialogValidation(ValidDialogStatus.UNCHECKED, _dialog.value?.id ?: -1)
         }
     }
 
@@ -117,6 +122,7 @@ class EditorViewModel(private val repository: EditorRepository) : ViewModel() {
             _stateText.value = ""
             _stateTextValid.value = ValidationResult(true)
             _stateIdentifierValid.value = ValidationResult(true)
+            repository.setDialogValidation(ValidDialogStatus.UNCHECKED, _dialog.value?.id ?: -1)
         }
     }
 
@@ -143,6 +149,7 @@ class EditorViewModel(private val repository: EditorRepository) : ViewModel() {
                 answers = _transitions.value
             ) ?: return@launch
             repository.updateState(state, _dialog.value?.id ?: -1)
+            repository.setDialogValidation(ValidDialogStatus.UNCHECKED, _dialog.value?.id ?: -1)
             setState(null)
         }
     }
@@ -172,6 +179,30 @@ class EditorViewModel(private val repository: EditorRepository) : ViewModel() {
         }
     }
 
+    fun validateDialog(dialog: DialogData) {
+        viewModelScope.launch {
+            val fullDialog = repository.getDialogWithStates(dialog.id)
+            val results = fullDialog!!.validate()
+            if (results.any { !it.valid }) {
+                repository.setDialogValidation(ValidDialogStatus.INVALID, dialog.id)
+            } else if (results.any { it.warning }) {
+                repository.setDialogValidation(ValidDialogStatus.WARNING, dialog.id)
+            } else {
+                repository.setDialogValidation(ValidDialogStatus.VALID, dialog.id)
+            }
+
+            if (results.isEmpty()) {
+                _dialogValidationResults.value = listOf(ValidationResult(true))
+            } else {
+                _dialogValidationResults.value = results
+            }
+        }
+    }
+
+    fun resetValidationResults() {
+        _dialogValidationResults.value = emptyList()
+    }
+
     fun setStateIdentifier(identifier: String) {
         _stateIdentifierValid.value = stateIdentifierValidator(identifier)
         _stateIdentifier.value = identifier
@@ -198,12 +229,14 @@ class EditorViewModel(private val repository: EditorRepository) : ViewModel() {
     fun setStartingState(state: StateData) {
         viewModelScope.launch {
             repository.setStartingState(state, _dialog.value?.id ?: -1)
+            repository.setDialogValidation(ValidDialogStatus.UNCHECKED, _dialog.value?.id ?: -1)
         }
     }
 
     fun setFinishState(state: StateData) {
         viewModelScope.launch {
             repository.setFinishState(state, _dialog.value?.id ?: -1)
+            repository.setDialogValidation(ValidDialogStatus.UNCHECKED, _dialog.value?.id ?: -1)
         }
     }
 

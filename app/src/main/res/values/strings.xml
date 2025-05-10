@@ -44,8 +44,8 @@
     <string name="editor_state_identifier">Identifier</string>
     <string name="editor_state_text">Message</string>
     <string name="editor_state_type">State type</string>
-    <string name="editor_state_type_open_question">Open question</string>
-    <string name="editor_state_type_closed_question">Closed question</string>
+    <string name="editor_state_type_open_question">Open-ended question</string>
+    <string name="editor_state_type_closed_question">Multiple choice question</string>
     <string name="editor_state_type_message">Message</string>
     <string name="editor_state_type_unknown">Unknown type</string>
     <string name="save">Save</string>
@@ -75,4 +75,24 @@
     <string name="new_name">New name</string>
     <string name="passwords_do_not_match">Passwords do not match</string>
     <string name="too_long">Input too long</string>
+    <string name="editor_transition_empty_answer">State %1$s contains an answer with empty content.</string>
+    <string name="editor_transition_empty_to_state">State %1$s contains a transition with empty target state.</string>
+    <string name="editor_state_text_invalid_message">Closed question %1$s (with answers included in its body) is too large.</string>
+    <string name="editor_state_invalid_empty">State %1$s\'s content is empty.</string>
+    <string name="editor_state_final_not_message">Final state (%1$s) must be a message (the target doesn\'t matter).</string>
+    <string name="editor_dialog_invalid_empty">Dialog contains no states.</string>
+    <string name="editor_dialog_invalid_start">Dialog has no starting state.</string>
+    <string name="editor_dialog_invalid_finish">Dialog has no final state.</string>
+    <string name="editor_dialog_invalid_path">No path between starting and final state.</string>
+    <string name="editor_dialog_invalid_unreachable">Dialog contains unreachable states: %1$s.</string>
+    <string name="editor_dialog_invalid_inescapable">Final state is unreachable from states: %1$s.</string>
+    <string name="editor_dialog_valid">Valid</string>
+    <string name="editor_dialog_invalid">Invalid</string>
+    <string name="editor_dialog_warning">Warning</string>
+    <string name="editor_dialog_unchecked">Check</string>
+    <string name="editor_dialog_validation_results">Dialog validation results</string>
+    <string name="editor_dialog_validation_errors">Errors:</string>
+    <string name="editor_dialog_validation_warnings">Warnings:</string>
+    <string name="editor_dialog_validation_valid">No problems found.</string>
+    <string name="config_dialog_dropdown_info">Only error-free checked dialogs are shown.</string>
 </resources>

@@ -113,6 +113,7 @@ data class DialogEntity(
     @ColumnInfo(name = "timestamp") val timestamp: Long,
     @ColumnInfo(name = "start_state", index = true) val startState: Long?,
     @ColumnInfo(name = "end_state", index = true) val endState: Long?,
+    @ColumnInfo(name = "validation_status") val validationStatus: Int = 3
 )
 
 @Entity(

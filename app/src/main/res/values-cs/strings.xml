@@ -69,4 +69,24 @@
     <string name="new_name">Nové jméno</string>
     <string name="passwords_do_not_match">Hesla se neshodují</string>
     <string name="too_long">Příliš dlouhé</string>
+    <string name="editor_transition_empty_answer">Stav %1$s obsahuje odpověď s prázdným obsahem.</string>
+    <string name="editor_transition_empty_to_state">Stav %1$s obsahuje přechod s prázdým cílovým stavem.</string>
+    <string name="editor_state_text_invalid_message">Uzavřená otázka %1$s má moc velký obsah (text odpovědí se vkládá do textu otázky).</string>
+    <string name="editor_state_invalid_empty">Obsah stavu %1$s je prázdný.</string>
+    <string name="editor_state_final_not_message">Konečný stav (%1$s) musí být zpráva (na cílovém stavu nezáleží).</string>
+    <string name="editor_dialog_invalid_empty">Dialog neobsahuje žádné stavy.</string>
+    <string name="editor_dialog_invalid_start">Dialog nemá počáteční stav.</string>
+    <string name="editor_dialog_invalid_finish">Dialog nemá konečný stav.</string>
+    <string name="editor_dialog_invalid_path">Neexistuje cesta mezi počátečním a konečným stavem.</string>
+    <string name="editor_dialog_invalid_unreachable">Dialog obsahuje nedosažitelné stavy: %1$s.</string>
+    <string name="editor_dialog_invalid_inescapable">Konečný stav není dosažitelný ze stavů: %1$s.</string>
+    <string name="editor_dialog_valid">V pořádku</string>
+    <string name="editor_dialog_invalid">Chyba</string>
+    <string name="editor_dialog_warning">Varování</string>
+    <string name="editor_dialog_unchecked">Ověřit</string>
+    <string name="editor_dialog_validation_results">Výsledky ověření dialogu</string>
+    <string name="editor_dialog_validation_errors">Chyby:</string>
+    <string name="editor_dialog_validation_warnings">Varování:</string>
+    <string name="editor_dialog_validation_valid">Žádné problémy nebyly nalezeny.</string>
+    <string name="config_dialog_dropdown_info">Jsou zobrazeny pouze ověřené dialogy bez chyb.</string>
 </resources>
