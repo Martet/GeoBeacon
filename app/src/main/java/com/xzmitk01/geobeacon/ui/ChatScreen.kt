@@ -49,16 +49,19 @@ import kotlinx.coroutines.delay
 
 @SuppressLint("MissingPermission")
 @Composable
-fun MainScreen(bluetoothManager: BluetoothConnectionManager) {
+fun MainScreen(bluetoothManager: BluetoothConnectionManager, permissionsGranted: Boolean) {
     val context = LocalContext.current
     val application = context.applicationContext as GeoBeaconApp
     val viewModel: ChatViewModel = viewModel(factory = ChatViewModel.Factory(application.chatRepository, bluetoothManager))
     val ready by bluetoothManager.ready.collectAsState()
 
-    if (ready) {
-        ChatScreen(viewModel)
-    } else {
-        ScanningScreen()
+    BluetoothStatus(permissionsGranted) {
+        if (ready) {
+            ChatScreen(viewModel)
+        } else {
+            bluetoothManager.startScan()
+            ScanningScreen()
+        }
     }
 }
 

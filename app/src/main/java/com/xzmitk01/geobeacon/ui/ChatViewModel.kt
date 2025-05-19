@@ -37,10 +37,6 @@ class ChatViewModel(private val repository: ChatRepository, private val bluetoot
 
     init {
         viewModelScope.launch {
-            if (!bluetoothManager.ready.value) {
-                bluetoothManager.startScan()
-            }
-
             launch {
                 bluetoothManager.deviceName.collect {
                     _deviceName.value = it

@@ -90,4 +90,9 @@
     <string name="editor_dialog_validation_valid">Žádné problémy nebyly nalezeny.</string>
     <string name="config_dialog_dropdown_info">Jsou zobrazeny pouze ověřené dialogy bez chyb.</string>
     <string name="authorization_disabled">Konfigurace není povolená</string>
+    <string name="permissions_required">Vyžadovány oprávnění</string>
+    <string name="permissions_required_message">Aby bylo možné se připojit k GeoBeaconům, je nutné udělit povolení pro objevení a připojení k zařízením v okolí.\\n\\nNa Androidu 11 a níže je nutné udělit oprávnění pro přístup k přesné poloze kvůli možnosti jejího získání na základě objevených zařízení. Tato aplikace ale data o poloze žádným způsobem nevyužívá.\\n\\nPokud zmáčknete tlačítko \"Zrušit\" nebo neudělíte vyžadované oprávnění, nebudete se moct připojit k GeoBeaconům.</string>
+    <string name="permissions_not_granted">Oprávnění pro nalezení a připojení k zařízením v okolí nebylo uděleno</string>
+    <string name="ble_unavailable">Bluetooth Low Energy není na vašem zařízení dostupný</string>
+    <string name="ble_diabled">Bluetooth je vypnutý</string>
 </resources>

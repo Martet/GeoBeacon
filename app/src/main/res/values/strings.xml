@@ -96,4 +96,9 @@
     <string name="config_dialog_dropdown_info">Only error-free checked dialogs are shown.</string>
     <string name="authorization_disabled">Configuration is currently disabled</string>
     <string name="app_name" translatable="false">GeoBeacon</string>
+    <string name="permissions_required">Permissions required</string>
+    <string name="permissions_required_message">To be able to connect to GeoBeacons, the permission to find and connect to local devices must be granted.\n\nOn Android 11 and lower, the permission to access fine location must be granted as well. This is because discovering Bluetooth devices may enable apps to get a precise location, but this app doesn\'t use location data in any way.\n\nIf you tap on \"Cancel\" or don\'t grant the required permissions, you won\'t be able to connect to GeoBeacons.</string>
+    <string name="permissions_not_granted">Permission for discovering and connecting to nearby Bluetooth devices isn\'t granted</string>
+    <string name="ble_unavailable">Bluetooth Low Energy isn\'t available on your device</string>
+    <string name="ble_diabled">Bluetooth is disabled</string>
 </resources>

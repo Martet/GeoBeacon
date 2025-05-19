@@ -48,14 +48,6 @@ class ConfigurationViewModel(private val repository: EditorRepository, private v
         it.filter { it.validationStatus in listOf(ValidDialogStatus.VALID, ValidDialogStatus.WARNING) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), listOf())
 
-    init {
-        viewModelScope.launch {
-            if (!bluetoothManager.ready.value) {
-                bluetoothManager.startScan()
-            }
-        }
-    }
-
     fun setNameFieldContent(content: String) {
         _nameFieldContent.value = content
         _nameFieldError.value = content.toByteArray().size > bluetoothManager.MAX_NAME_SIZE

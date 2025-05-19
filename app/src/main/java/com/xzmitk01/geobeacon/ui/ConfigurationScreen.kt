@@ -1,5 +1,6 @@
 package com.xzmitk01.geobeacon.ui
 
+import android.annotation.SuppressLint
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -27,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -47,9 +49,10 @@ import com.xzmitk01.geobeacon.data.BluetoothConnectionManager
 import com.xzmitk01.geobeacon.data.ValidDialogStatus
 import kotlinx.coroutines.flow.SharedFlow
 
+@SuppressLint("MissingPermission")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ConfigurationScreen(bluetoothManager: BluetoothConnectionManager) {
+fun ConfigurationScreen(bluetoothManager: BluetoothConnectionManager, permissionsGranted: Boolean) {
     val context = LocalContext.current
     val application = context.applicationContext as GeoBeaconApp
     val viewModel: ConfigurationViewModel = viewModel(factory = ConfigurationViewModel.Factory(application.editorRepository, bluetoothManager))
@@ -60,49 +63,52 @@ fun ConfigurationScreen(bluetoothManager: BluetoothConnectionManager) {
 
     var showConfirmationDialog by remember { mutableStateOf(false) }
 
-    if (ready) {
-        Column {
-            TopAppBar(
-                title = { Text(deviceName.toString(), overflow = TextOverflow.Ellipsis) },
-            )
+    BluetoothStatus(permissionsGranted) {
+        if (ready) {
+            Column {
+                TopAppBar(
+                    title = { Text(deviceName.toString(), overflow = TextOverflow.Ellipsis) },
+                )
 
-            if (authorized) {
-                ConfigurationScreenReady(viewModel)
-            } else {
-                AuthorizationScreen(bluetoothManager.authorizationError) {
-                    viewModel.authorize(it)
+                if (authorized) {
+                    ConfigurationScreenReady(viewModel)
+                } else {
+                    AuthorizationScreen(bluetoothManager.authorizationError) {
+                        viewModel.authorize(it)
+                    }
                 }
             }
-        }
 
-        if (showConfirmationDialog) {
-            AlertDialog(
-                onDismissRequest = { showConfirmationDialog = false },
-                title = { Text(stringResource(R.string.warning)) },
-                text = { Text(stringResource(R.string.disconnect_dialog_warning)) },
-                confirmButton = {
-                    TextButton(onClick = {
-                        showConfirmationDialog = false
-                        viewModel.reconnect()
-                    }) {
-                        Text(stringResource(R.string.yes))
+            if (showConfirmationDialog) {
+                AlertDialog(
+                    onDismissRequest = { showConfirmationDialog = false },
+                    title = { Text(stringResource(R.string.warning)) },
+                    text = { Text(stringResource(R.string.disconnect_dialog_warning)) },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            showConfirmationDialog = false
+                            viewModel.reconnect()
+                        }) {
+                            Text(stringResource(R.string.yes))
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = {
+                            showConfirmationDialog = false
+                        }) {
+                            Text(stringResource(R.string.no))
+                        }
                     }
-                },
-                dismissButton = {
-                    TextButton(onClick = {
-                        showConfirmationDialog = false
-                    }) {
-                        Text(stringResource(R.string.no))
-                    }
-                }
-            )
-        }
+                )
+            }
 
-        BackHandler {
-            showConfirmationDialog = true
+            BackHandler {
+                showConfirmationDialog = true
+            }
+        } else {
+            bluetoothManager.startScan()
+            ScanningScreen()
         }
-    } else {
-        ScanningScreen()
     }
 }
 
@@ -110,7 +116,7 @@ fun ConfigurationScreen(bluetoothManager: BluetoothConnectionManager) {
 fun AuthorizationScreen(errorFlow: SharedFlow<Int>, onAuthorize: (String) -> Unit) {
     var passwordText by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf(0) }
+    var error by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(Unit) {
         errorFlow.collect {
