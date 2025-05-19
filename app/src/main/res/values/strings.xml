@@ -1,6 +1,5 @@
 <resources>
-    <string name="app_name" translatable="false">GeoBeacon</string>
-    <string name="title_activity_main" translatable="false">MainActivity</string>
+    <string name="title_activity_main" translatable="false">GeoBeacon</string>
 
     <string name="scanning">Scanning…</string>
     <string name="disconnect_dialog_warning">Are you sure you want to disconnect?</string>
@@ -96,4 +95,5 @@
     <string name="editor_dialog_validation_valid">No problems found.</string>
     <string name="config_dialog_dropdown_info">Only error-free checked dialogs are shown.</string>
     <string name="authorization_disabled">Configuration is currently disabled</string>
+    <string name="app_name" translatable="false">GeoBeacon</string>
 </resources>

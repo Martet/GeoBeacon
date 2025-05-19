@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.geobeacon"
+    namespace = "com.xzmitk01.geobeacon"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.geobeacon"
+        applicationId = "com.xzmitk01.geobeacon"
         minSdk = 28
         targetSdk = 35
         versionCode = 1
