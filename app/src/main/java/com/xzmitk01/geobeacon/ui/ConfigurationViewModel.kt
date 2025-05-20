@@ -11,6 +11,7 @@ import com.xzmitk01.geobeacon.data.BluetoothConnectionManager
 import com.xzmitk01.geobeacon.data.DialogData
 import com.xzmitk01.geobeacon.data.ValidDialogStatus
 import com.xzmitk01.geobeacon.data.db.EditorRepository
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -82,8 +83,15 @@ class ConfigurationViewModel(private val repository: EditorRepository, private v
                     _writeFailureResource.value = R.string.name_write_failure
                     return@launch
                 }
-                bluetoothManager.readName()
+                if (deviceName.value != _nameFieldContent.value) {
+                    val oldName = deviceName.value
+                    bluetoothManager.readName()
+                    while (deviceName.value == oldName) {
+                        delay(10)
+                    }
+                }
                 _nameFieldContent.value = ""
+                delay(10)
             }
 
             if (_passwordFieldContent.value != "") {
@@ -96,6 +104,7 @@ class ConfigurationViewModel(private val repository: EditorRepository, private v
                 }
                 _passwordFieldContent.value = ""
                 _passwordRepeatFieldContent.value = ""
+                delay(10)
             }
 
             if (_selectedDialog.value != null) {
@@ -125,6 +134,7 @@ class ConfigurationViewModel(private val repository: EditorRepository, private v
                     _writeFailureResource.value = R.string.dialog_write_failure
                     return@launch
                 }
+                delay(10)
 
                 if (bluetoothManager.transferDialog(dialogBytes, totalPackets.toInt()) != 0) {
                     _writeFailureResource.value = R.string.dialog_write_failure
