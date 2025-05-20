@@ -1,6 +1,9 @@
 package com.xzmitk01.geobeacon.ui
 
+import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentScope
 import androidx.compose.animation.AnimatedVisibility
@@ -33,6 +36,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -77,6 +81,7 @@ import com.xzmitk01.geobeacon.data.ValidationResult
 import com.xzmitk01.geobeacon.data.toColor
 import com.xzmitk01.geobeacon.data.toStringResource
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
 import java.text.DateFormat
 
 @OptIn(ExperimentalAnimationApi::class)
@@ -99,7 +104,8 @@ fun EditorScreen() {
                 listState = listState,
                 clickedDetail = { viewModel.setDialog(it) },
                 onNewDialog = { viewModel.newDialog(it) },
-                onValidate = { viewModel.validateDialog(it) }
+                onValidate = { viewModel.validateDialog(it) },
+                onImport = { viewModel.onJsonImported(it) }
             )
         } else {
             DialogDetail(
@@ -153,16 +159,39 @@ fun DialogList(
     listState: LazyListState,
     clickedDetail: (DialogData) -> Unit,
     onNewDialog: (String) -> Unit,
-    onValidate: (DialogData) -> Unit
+    onValidate: (DialogData) -> Unit,
+    onImport: (String) -> Unit
 ) {
     val dateFormatter = remember { DateFormat.getDateInstance(DateFormat.SHORT) }
     val timeFormatter = remember { DateFormat.getTimeInstance(DateFormat.SHORT) }
 
     var showNewDialog by remember { mutableStateOf(false) }
 
+    val context = LocalContext.current
+    val importJsonLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+        onResult = { uri: Uri? ->
+            uri?.let {
+                val json = context.contentResolver.openInputStream(it)?.bufferedReader()?.use { reader ->
+                    reader.readText()
+                }
+                json?.let { onImport(it) }
+            }
+        }
+    )
+
     Column {
         TopAppBar(
             title = { Text(stringResource(R.string.editor_title)) },
+            actions = {
+                IconButton(onClick = {
+                    importJsonLauncher.launch(arrayOf("application/json"))
+                }) {
+                    Icon(
+                        painter = painterResource(R.drawable.outline_file_upload_24),
+                        contentDescription = "Import")
+                }
+            }
         )
         Box(modifier = Modifier.padding(16.dp).fillMaxSize()) {
             if (dialogs.isEmpty()) {
@@ -288,6 +317,20 @@ fun StateList(states: List<StateData>, dialog: DialogData, listState: LazyListSt
     var showNewStateDialog by remember { mutableStateOf(false) }
 
     var dialogName by remember { mutableStateOf(dialog.name) }
+    val fullDialog by viewModel.fullDialog.collectAsState()
+
+    val context = LocalContext.current
+    val exportJsonLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json"),
+        onResult = { uri: Uri? ->
+            uri?.let {
+                val json = Json.encodeToString(fullDialog)
+                context.contentResolver.openOutputStream(it)?.use { outputStream ->
+                    outputStream.write(json.toByteArray())
+                }
+            }
+        }
+    )
 
     Column {
         TopAppBar(
@@ -298,16 +341,73 @@ fun StateList(states: List<StateData>, dialog: DialogData, listState: LazyListSt
                 }
             },
             actions = {
+                var showMenu by remember { mutableStateOf(false) }
+
                 ValidationStatus(dialog = dialog, onValidate = { viewModel.validateDialog(dialog) })
-                IconButton(onClick = { showDeleteDialog = true }) {
-                    Icon(Icons.Default.Delete, tint = Color.Red, contentDescription = "Delete")
+
+                Box {
+                    IconButton(onClick = { showMenu = !showMenu }) {
+                        Icon(
+                            imageVector = Icons.Default.Menu,
+                            contentDescription = "Open options" // Accessibility
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.duplicate)) },
+                            onClick = {
+                                showMenu = false
+                                viewModel.copyDialog()
+                            },
+                            trailingIcon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.outline_content_copy_24),
+                                    contentDescription = "Copy"
+                                )
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.export)) },
+                            onClick = {
+                                showMenu = false
+                                viewModel.getFullDialog()
+                                exportJsonLauncher.launch("$dialogName.json")
+                            },
+                            trailingIcon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.outline_file_download_24),
+                                    contentDescription = "Export"
+                                )
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.delete)) },
+                            onClick = {
+                                showMenu = false
+                                showDeleteDialog = true
+                            },
+                            trailingIcon = {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    tint = Color.Red,
+                                    contentDescription = "Delete"
+                                )
+                            }
+                        )
+                    }
                 }
             }
         )
 
         Column(
             verticalArrangement = Arrangement.spacedBy(18.dp),
-            modifier = Modifier.fillMaxWidth().padding(16.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
         ) {
             OutlinedTextField(
                 value = dialogName,

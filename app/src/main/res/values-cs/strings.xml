@@ -95,4 +95,7 @@
     <string name="permissions_not_granted">Oprávnění pro nalezení a připojení k zařízením v okolí nebylo uděleno</string>
     <string name="ble_unavailable">Bluetooth Low Energy není na vašem zařízení dostupný</string>
     <string name="ble_diabled">Bluetooth je vypnutý</string>
+    <string name="delete">Smazat</string>
+    <string name="export">Exportovat</string>
+    <string name="duplicate">Zkopírovat</string>
 </resources>

@@ -61,6 +61,41 @@ class EditorRepository(private val dao: EditorDao) {
         )
     }
 
+    suspend fun insertFullDialog(dialog: DialogData) {
+        val oldToNewStateIdMap = mutableMapOf<Long, Long>()
+
+        val newDialogId = insertDialog(dialog.copy(id = 0, time = Date(), startState = null, finishState = null))
+
+        dialog.states.forEach { state ->
+            val newStateId = insertState(state.copy(id = 0), newDialogId)
+            oldToNewStateIdMap[state.id] = newStateId
+        }
+
+        val newStartStateId = dialog.startState?.id?.let { oldToNewStateIdMap[it] }
+        val newFinishStateId = dialog.finishState?.id?.let { oldToNewStateIdMap[it] }
+
+        if (newStartStateId != null) {
+            val startStateData = dialog.states.find { it.id == dialog.startState.id }
+            if (startStateData != null) {
+                setStartingState(startStateData.copy(id = newStartStateId), newDialogId)
+            }
+        }
+        if (newFinishStateId != null) {
+            val finishStateData = dialog.states.find { it.id == dialog.finishState.id }
+            if (finishStateData != null) {
+                setFinishState(finishStateData.copy(id = newFinishStateId), newDialogId)
+            }
+        }
+
+        dialog.states.forEach { state ->
+            val newFromStateId = oldToNewStateIdMap[state.id] ?: return@forEach
+            state.answers.forEach {
+                val newToStateId = it.toState?.id?.let { oldId -> oldToNewStateIdMap[oldId] }
+                dao.insertTransition(TransitionEntity(0, newFromStateId, newToStateId, it.answer))
+            }
+        }
+    }
+
     suspend fun getDialog(id: Long): DialogData? {
         val dialog = dao.getDialog(id) ?: return null
         return mapDialog(dialog)

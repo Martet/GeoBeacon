@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
 
 class EditorViewModel(private val repository: EditorRepository) : ViewModel() {
     val dialogs = repository.dialogsFlow
@@ -68,6 +69,9 @@ class EditorViewModel(private val repository: EditorRepository) : ViewModel() {
     private val _dialogValidationResults = MutableStateFlow<List<ValidationResult>>(emptyList())
     val dialogValidationResults = _dialogValidationResults.asStateFlow()
 
+    private val _fullDialog = MutableStateFlow<DialogData?>(null)
+    val fullDialog = _fullDialog.asStateFlow()
+
     private var oldIsModified = false
 
     val isModified = combine(_state, oldState, _transitions, oldTransitions, _stateIdentifier, _stateText) {
@@ -78,6 +82,26 @@ class EditorViewModel(private val repository: EditorRepository) : ViewModel() {
                 && _stateTextValid.value.valid
         oldIsModified
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    fun getFullDialog() {
+        viewModelScope.launch {
+            _fullDialog.value = repository.getDialogWithStates(_dialog.value?.id ?: -1)
+        }
+    }
+
+    fun onJsonImported(json: String) {
+        viewModelScope.launch {
+            repository.insertFullDialog(Json.decodeFromString(json))
+        }
+    }
+
+    fun copyDialog() {
+        viewModelScope.launch {
+            val dialog = repository.getDialogWithStates(_dialog.value!!.id)
+            repository.insertFullDialog(dialog!!.copy(name = dialog.name + " (kopie)"))
+            setDialog(null)
+        }
+    }
 
     fun setDialog(newDialog: DialogData?) {
         _dialog.value = newDialog

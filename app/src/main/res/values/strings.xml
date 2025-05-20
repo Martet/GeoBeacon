@@ -101,4 +101,7 @@
     <string name="permissions_not_granted">Permission for discovering and connecting to nearby Bluetooth devices isn\'t granted</string>
     <string name="ble_unavailable">Bluetooth Low Energy isn\'t available on your device</string>
     <string name="ble_diabled">Bluetooth is disabled</string>
+    <string name="delete">Delete</string>
+    <string name="export">Export</string>
+    <string name="duplicate">Copy</string>
 </resources>

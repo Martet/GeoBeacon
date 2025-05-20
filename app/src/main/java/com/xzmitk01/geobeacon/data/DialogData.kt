@@ -4,6 +4,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import com.xzmitk01.geobeacon.R
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import org.jgrapht.Graph
 import org.jgrapht.graph.DefaultDirectedGraph
 import org.jgrapht.graph.DefaultEdge
@@ -12,9 +19,11 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.Date
 
+@Serializable
 data class DialogData(
     val id: Long = 0,
     val name: String,
+    @Serializable(with = DateSerializer::class)
     val time: Date = Date(),
     val startState: StateData? = null,
     val finishState: StateData? = null,
@@ -124,6 +133,7 @@ data class DialogData(
     }
 }
 
+@Serializable
 data class StateData(
     val id: Long = 0,
     val name: String,
@@ -218,6 +228,7 @@ data class StateData(
     }
 }
 
+@Serializable
 data class TransitionData(
     val id: Long = 0,
     val answer: String = "",
@@ -291,5 +302,18 @@ fun ValidDialogStatus.toColor(): Color {
         ValidDialogStatus.VALID.value -> Color.Green
         ValidDialogStatus.INVALID.value -> Color.Red
         else -> MaterialTheme.colorScheme.primary
+    }
+}
+
+object DateSerializer : KSerializer<Date> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("IgnoredDate", PrimitiveKind.LONG)
+
+    override fun serialize(encoder: Encoder, value: Date) {
+        // Do nothing: exclude from JSON
+    }
+
+    override fun deserialize(decoder: Decoder): Date {
+        return Date() // Set current time on deserialization
     }
 }
