@@ -51,6 +51,9 @@ class BluetoothConnectionManager(private val context: Context) {
     val GAP_SERVICE_UUID = UUID.fromString("00001800-0000-1000-8000-00805f9b34fb")
     val DEVICE_NAME_UUID = UUID.fromString("00002a00-0000-1000-8000-00805f9b34fb")
 
+    val BATTERY_SERVICE_UUID = UUID.fromString("0000180f-0000-1000-8000-00805f9b34fb")
+    val BATTERY_LEVEL_UUID = UUID.fromString("00002a19-0000-1000-8000-00805f9b34fb")
+
     val MAX_NAME_SIZE = 64
     val MAX_PASSWORD_SIZE = 64
     val DIALOG_PACKET_SIZE = 216
@@ -96,7 +99,8 @@ class BluetoothConnectionManager(private val context: Context) {
     val ready: StateFlow<Boolean> = _ready.asStateFlow()
     private val _messageFlow = MutableSharedFlow<String>(replay = 10, extraBufferCapacity = 3)
     val messageFlow: SharedFlow<String> = _messageFlow.asSharedFlow()
-
+    private val _batteryLevel = MutableStateFlow<Int?>(null)
+    val batteryLevel: StateFlow<Int?> = _batteryLevel.asStateFlow()
 
     @RequiresPermission(allOf = [Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT])
     fun startScan() {
@@ -284,6 +288,11 @@ class BluetoothConnectionManager(private val context: Context) {
                 _ready.value = true
                 Log.d("GeoBeacon", "Device short name: ${_deviceName.value}")
                 readName(gatt)
+                CoroutineScope(Dispatchers.IO).launch {
+                    delay(1000)
+                    val char = gatt.getService(BATTERY_SERVICE_UUID).getCharacteristic(BATTERY_LEVEL_UUID)
+                    gatt.readCharacteristic(char)
+                }
             } else {
                 CoroutineScope(Dispatchers.IO).launch {
                     delay(250)
@@ -300,13 +309,20 @@ class BluetoothConnectionManager(private val context: Context) {
         ) {
             super.onCharacteristicRead(gatt, characteristic, value, status)
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                if (characteristic.uuid == DEVICE_NAME_UUID) {
-                    _deviceName.value = value.toString(Charsets.UTF_8)
-                    Log.d("GeoBeacon", "Device long name: ${_deviceName.value}")
-                } else if (characteristic.uuid == CONFIG_NOTIFICATION_UUID) {
-                    continuationJob?.cancel()
-                    pendingContinuation?.resume(value[0].toInt())
-                    pendingContinuation = null
+                when (characteristic.uuid) {
+                    DEVICE_NAME_UUID -> {
+                        _deviceName.value = value.toString(Charsets.UTF_8)
+                        Log.d("GeoBeacon", "Device long name: ${_deviceName.value}")
+                    }
+                    CONFIG_NOTIFICATION_UUID -> {
+                        continuationJob?.cancel()
+                        pendingContinuation?.resume(value[0].toInt())
+                        pendingContinuation = null
+                    }
+                    BATTERY_LEVEL_UUID -> {
+                        Log.d("GeoBeacon", "Battery level: ${value[0]}")
+                        _batteryLevel.value = value[0].toInt()
+                    }
                 }
             } else {
                 Log.d("GeoBeacon", "Characteristic read failed with $status")

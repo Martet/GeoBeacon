@@ -8,7 +8,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -34,14 +36,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xzmitk01.geobeacon.GeoBeaconApp
 import com.xzmitk01.geobeacon.R
@@ -60,6 +65,7 @@ fun ConfigurationScreen(bluetoothManager: BluetoothConnectionManager, permission
     val authorized by bluetoothManager.authorized.collectAsState()
     val deviceName by viewModel.deviceName.collectAsState()
     val ready by bluetoothManager.ready.collectAsState()
+    val batteryLevel by bluetoothManager.batteryLevel.collectAsState()
 
     var showConfirmationDialog by remember { mutableStateOf(false) }
 
@@ -68,6 +74,26 @@ fun ConfigurationScreen(bluetoothManager: BluetoothConnectionManager, permission
             Column {
                 TopAppBar(
                     title = { Text(deviceName.toString(), overflow = TextOverflow.Ellipsis) },
+                    actions = {
+                        if (batteryLevel != null) {
+                            Box(
+                                modifier = Modifier.padding(horizontal = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.baseline_battery_0_bar_24),
+                                    contentDescription = "Battery Status",
+                                    modifier = Modifier.size(42.dp).rotate(90f)
+                                )
+                                Text(
+                                    text = "$batteryLevel%",
+                                    textAlign = TextAlign.Center,
+                                    fontSize = 10.sp,
+                                    modifier = Modifier.offset(x = (-2).dp)
+                                )
+                            }
+                        }
+                    }
                 )
 
                 if (authorized) {
