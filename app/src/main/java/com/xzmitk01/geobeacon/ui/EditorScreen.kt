@@ -70,6 +70,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xzmitk01.geobeacon.GeoBeaconApp
 import com.xzmitk01.geobeacon.R
@@ -221,7 +222,10 @@ fun DialogList(
 
             FloatingActionButton(
                 onClick = { showNewDialog = true },
-                modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp)
+                    .zIndex(1f)
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Add")
             }
@@ -303,8 +307,7 @@ fun DialogDetail(viewModel: EditorViewModel, dialog: DialogData) {
             )
         } else {
             StateDetail(
-                state = it,
-                viewModel = viewModel,
+                viewModel = viewModel
             )
         }
     }
@@ -463,7 +466,10 @@ fun StateList(states: List<StateData>, dialog: DialogData, listState: LazyListSt
                 if (states.size <= 16) {
                     FloatingActionButton(
                         onClick = { showNewStateDialog = true },
-                        modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(16.dp)
+                            .zIndex(1f)
                     ) {
                         Icon(Icons.Default.Add, contentDescription = "Add")
                     }
@@ -527,7 +533,7 @@ fun StateItem(state: StateData, onClick: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StateDetail(state: StateData, viewModel: EditorViewModel) {
+fun StateDetail(viewModel: EditorViewModel) {
     val coroutineScope = rememberCoroutineScope()
 
     var showDeleteState by remember { mutableStateOf(false) }
@@ -542,10 +548,11 @@ fun StateDetail(state: StateData, viewModel: EditorViewModel) {
     val textValid by viewModel.stateTextValid.collectAsState()
     val identifierText by viewModel.stateIdentifier.collectAsState()
     val stateText by viewModel.stateText.collectAsState()
+    val state by viewModel.state.collectAsState()
 
     Column {
         TopAppBar(
-            title = { Text(stringResource(R.string.state) + ": " + state.name, overflow = TextOverflow.Ellipsis) },
+            title = { Text(stringResource(R.string.state) + ": " + state?.name, overflow = TextOverflow.Ellipsis) },
             navigationIcon = {
                 IconButton(onClick = { showBackState = true }) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -561,9 +568,9 @@ fun StateDetail(state: StateData, viewModel: EditorViewModel) {
         Box(modifier = Modifier.padding(16.dp).fillMaxSize()) {
             this@Column.AnimatedVisibility(
                 modified,
-                modifier = Modifier.align(Alignment.BottomEnd),
-                enter = fadeIn() + slideInVertically(initialOffsetY = {it / 2}),
-                exit = fadeOut() + slideOutVertically()
+                modifier = Modifier.align(Alignment.BottomEnd).zIndex(1f),
+                enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
+                exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 })
             ) {
                 ExtendedFloatingActionButton(
                     text = { Text(stringResource(R.string.save)) },
@@ -595,7 +602,7 @@ fun StateDetail(state: StateData, viewModel: EditorViewModel) {
                     isError = !textValid.valid,
                     supportingText = { if (!textValid.valid) Text(stringResource(textValid.errorStringResource!!)) },
                     label = {
-                        if (state.type == StateType.MESSAGE) {
+                        if (state?.type == StateType.MESSAGE) {
                             Text(stringResource(R.string.editor_state_text))
                         } else {
                             Text(stringResource(R.string.editor_state_question))
@@ -606,7 +613,7 @@ fun StateDetail(state: StateData, viewModel: EditorViewModel) {
                 InputDropdownMenu(
                     label = stringResource(R.string.editor_state_type),
                     options = StateType.entries,
-                    selectedOption = state.type,
+                    selectedOption = state?.type,
                     onOptionSelected = { viewModel.setStateType(it) },
                     optionLabel = { stringResource(it.toStringResource()) },
                     modifier = Modifier.fillMaxWidth()
@@ -623,7 +630,7 @@ fun StateDetail(state: StateData, viewModel: EditorViewModel) {
                     item {
                         Spacer(modifier = Modifier.height(12.dp))
                     }
-                    if (state.type == StateType.MESSAGE) {
+                    if (state?.type == StateType.MESSAGE) {
                         item {
                             InputDropdownMenu(
                                 label = stringResource(R.string.editor_state),
@@ -681,7 +688,7 @@ fun StateDetail(state: StateData, viewModel: EditorViewModel) {
     if (showDeleteState) {
         DeleteAlert(
             message = stringResource(R.string.delete_state_editor_warning),
-            onDelete = { viewModel.deleteState(state.id) },
+            onDelete = { state?.let { viewModel.deleteState(it.id) } },
             onDismiss = { showDeleteState = false }
         )
     }
