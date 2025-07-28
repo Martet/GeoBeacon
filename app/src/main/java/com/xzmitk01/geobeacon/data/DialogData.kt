@@ -207,23 +207,27 @@ data class StateData(
             buffer.put(255.toUByte().toByte())
         }
 
-        if (type == StateType.CLOSED_QUESTION) {
-            buffer.put(1) // Is closed question
-            buffer.put(answers.size.toUByte().toByte()) // Answer count
-            answers.forEachIndexed { i, it ->
-                buffer.put(2) // Answer text size
-                buffer.put((i + 1).toString().toByteArray() + 0.toByte()) // Answer text
-                buffer.put(stateIdMap[it.toState?.id]!!.toUByte().toByte()) // Target state
+        when (type) {
+            StateType.CLOSED_QUESTION -> {
+                buffer.put(1) // Is closed question
+                buffer.put(answers.size.toUByte().toByte()) // Answer count
+                answers.forEachIndexed { i, it ->
+                    buffer.put(2) // Answer text size
+                    buffer.put((i + 1).toString().toByteArray() + 0.toByte()) // Answer text
+                    buffer.put(stateIdMap[it.toState?.id]!!.toUByte().toByte()) // Target state
+                }
             }
-        } else if (type == StateType.OPEN_QUESTION) {
-            buffer.put(0) // Is open question
-            buffer.put(answers.size.toUByte().toByte()) // Answer count
-            answers.forEach {
-                it.serialize(stateIdMap, buffer)
+            StateType.OPEN_QUESTION -> {
+                buffer.put(0) // Is open question
+                buffer.put(answers.size.toUByte().toByte()) // Answer count
+                answers.forEach {
+                    it.serialize(stateIdMap, buffer)
+                }
             }
-        } else {
-            buffer.put(0) // Is open question
-            buffer.put(0) // Answer count
+            StateType.MESSAGE -> {
+                buffer.put(0) // Is open question
+                buffer.put(0) // Answer count
+            }
         }
     }
 }

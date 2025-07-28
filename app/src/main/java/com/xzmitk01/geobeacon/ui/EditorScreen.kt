@@ -36,7 +36,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -189,12 +189,12 @@ fun DialogList(
                     importJsonLauncher.launch(arrayOf("application/json"))
                 }) {
                     Icon(
-                        painter = painterResource(R.drawable.outline_file_upload_24),
+                        painter = painterResource(R.drawable.outline_file_download_24),
                         contentDescription = "Import")
                 }
             }
         )
-        Box(modifier = Modifier.padding(16.dp).fillMaxSize()) {
+        Box(modifier = Modifier.padding(start = 16.dp, end = 12.dp, top = 16.dp, bottom = 16.dp).fillMaxSize()) {
             if (dialogs.isEmpty()) {
                 Text(
                     stringResource(R.string.editor_no_dialogs),
@@ -351,7 +351,7 @@ fun StateList(states: List<StateData>, dialog: DialogData, listState: LazyListSt
                 Box {
                     IconButton(onClick = { showMenu = !showMenu }) {
                         Icon(
-                            imageVector = Icons.Default.Menu,
+                            imageVector = Icons.Default.MoreVert,
                             contentDescription = "Open options" // Accessibility
                         )
                     }
@@ -366,7 +366,7 @@ fun StateList(states: List<StateData>, dialog: DialogData, listState: LazyListSt
                                 showMenu = false
                                 viewModel.copyDialog()
                             },
-                            trailingIcon = {
+                            leadingIcon = {
                                 Icon(
                                     painter = painterResource(R.drawable.outline_content_copy_24),
                                     contentDescription = "Copy"
@@ -380,9 +380,9 @@ fun StateList(states: List<StateData>, dialog: DialogData, listState: LazyListSt
                                 viewModel.getFullDialog()
                                 exportJsonLauncher.launch("$dialogName.json")
                             },
-                            trailingIcon = {
+                            leadingIcon = {
                                 Icon(
-                                    painter = painterResource(R.drawable.outline_file_download_24),
+                                    painter = painterResource(R.drawable.outline_file_upload_24),
                                     contentDescription = "Export"
                                 )
                             }
@@ -393,7 +393,7 @@ fun StateList(states: List<StateData>, dialog: DialogData, listState: LazyListSt
                                 showMenu = false
                                 showDeleteDialog = true
                             },
-                            trailingIcon = {
+                            leadingIcon = {
                                 Icon(
                                     Icons.Default.Delete,
                                     tint = Color.Red,

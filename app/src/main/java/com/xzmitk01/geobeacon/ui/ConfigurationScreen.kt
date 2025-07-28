@@ -6,16 +6,26 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -23,6 +33,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -33,6 +45,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,6 +54,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -53,6 +67,7 @@ import com.xzmitk01.geobeacon.R
 import com.xzmitk01.geobeacon.data.BluetoothConnectionManager
 import com.xzmitk01.geobeacon.data.ValidDialogStatus
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.launch
 
 @SuppressLint("MissingPermission")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -75,7 +90,7 @@ fun ConfigurationScreen(bluetoothManager: BluetoothConnectionManager, permission
                 TopAppBar(
                     title = { Text(deviceName.toString(), overflow = TextOverflow.Ellipsis) },
                     actions = {
-                        if (batteryLevel != null) {
+                        if (authorized) {
                             Box(
                                 modifier = Modifier.padding(horizontal = 8.dp),
                                 contentAlignment = Alignment.Center
@@ -85,12 +100,20 @@ fun ConfigurationScreen(bluetoothManager: BluetoothConnectionManager, permission
                                     contentDescription = "Battery Status",
                                     modifier = Modifier.size(42.dp).rotate(90f)
                                 )
-                                Text(
-                                    text = "$batteryLevel%",
-                                    textAlign = TextAlign.Center,
-                                    fontSize = 10.sp,
-                                    modifier = Modifier.offset(x = (-2).dp)
-                                )
+                                if (batteryLevel != null) {
+                                    Text(
+                                        text = "$batteryLevel%",
+                                        textAlign = TextAlign.Center,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.offset(x = (-2).dp)
+                                    )
+                                } else {
+                                    CircularProgressIndicator(
+                                        strokeWidth = 2.dp,
+                                        modifier = Modifier.size(10.dp).offset(x = (-2).dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -212,9 +235,39 @@ fun AuthorizationScreen(errorFlow: SharedFlow<Int>, onAuthorize: (String) -> Uni
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConfigurationScreenReady(viewModel: ConfigurationViewModel) {
+    val pagerState = rememberPagerState { 2 }
+    val coroutineScope = rememberCoroutineScope()
+
+    PrimaryTabRow(pagerState.currentPage) {
+        Tab(
+            selected = pagerState.currentPage == 0,
+            onClick = { coroutineScope.launch { pagerState.animateScrollToPage(0) } },
+            text = { Text(stringResource(R.string.config)) },
+            unselectedContentColor = MaterialTheme.colorScheme.onSurface
+        )
+        Tab(
+            selected = pagerState.currentPage == 1,
+            onClick = { coroutineScope.launch { pagerState.animateScrollToPage(1) } },
+            text = { Text(stringResource(R.string.stats)) },
+            unselectedContentColor = MaterialTheme.colorScheme.onSurface
+        )
+    }
+
+    HorizontalPager(pagerState) { page ->
+        when (page) {
+            0 -> ConfigurationTabContent(viewModel)
+            1 -> StatsTabContent(viewModel)
+        }
+    }
+}
+
+@Composable
+fun ConfigurationTabContent(viewModel: ConfigurationViewModel) {
     val dialogs by viewModel.dialogs.collectAsState()
+    val selectedDialog by viewModel.selectedDialog.collectAsState()
     val writeFailureResource by viewModel.writeFailureResource.collectAsState()
     val transferring by viewModel.transferring.collectAsState()
 
@@ -224,7 +277,6 @@ fun ConfigurationScreenReady(viewModel: ConfigurationViewModel) {
     val passwordFieldError by viewModel.passwordFieldError.collectAsState()
     val passwordRepeatFieldContent by viewModel.passwordRepeatFieldContent.collectAsState()
     val passwordRepeatFieldError by viewModel.passwordRepeatFieldError.collectAsState()
-    val selectedDialog by viewModel.selectedDialog.collectAsState()
 
     if (writeFailureResource != null) {
         AlertDialog(
@@ -243,7 +295,7 @@ fun ConfigurationScreenReady(viewModel: ConfigurationViewModel) {
         if (arrayOf(nameFieldError, passwordFieldError, passwordRepeatFieldError).all { !it }
             && passwordRepeatFieldContent == passwordFieldContent
             && (arrayOf(nameFieldContent, passwordFieldContent, passwordRepeatFieldContent).any { it.isNotEmpty() }
-                || selectedDialog != null)
+                    || selectedDialog != null)
         ) {
             FloatingActionButton(
                 onClick = {
@@ -312,9 +364,54 @@ fun ConfigurationScreenReady(viewModel: ConfigurationViewModel) {
                 onOptionSelected = { viewModel.selectDialog(it) },
                 supportingText = { Text(stringResource(R.string.config_dialog_dropdown_info)) },
                 optionLabel = { it?.name ?: "" },
-                trailingIcon = { Icon(Icons.Default.Warning, "Warning", tint = Color(255, 165, 0, 255)) },
+                trailingIcon = {
+                    Icon(
+                        Icons.Default.Warning,
+                        "Warning",
+                        tint = Color(255, 165, 0, 255)
+                    )
+                },
                 iconCondition = { it?.validationStatus == ValidDialogStatus.WARNING }
             )
+        }
+    }
+}
+
+@Composable
+fun StatsTabContent(viewModel: ConfigurationViewModel) {
+    val stats by viewModel.stats.collectAsState()
+    val scrollState = rememberScrollState()
+
+    stats?.let {
+        Column(modifier = Modifier.fillMaxSize().verticalScroll(scrollState)) {
+            FlowRow(
+                modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                maxItemsInEachRow = 2
+            ) {
+                StatsCard(R.string.total_connections, it.totalConnections)
+                StatsCard(R.string.unique_users, it.uniqueUsers)
+                StatsCard(R.string.total_completions, it.totalCompletions)
+                StatsCard(R.string.successful_sessions, it.successRate)
+                StatsCard(R.string.average_duration, it.avgCompletionTimeFormatted)
+                StatsCard(R.string.longest_duration, it.maxCompletionTimeFormatted)
+                StatsCard(R.string.last_completion, it.lastCompletionTimeFormatted)
+                StatsCard(R.string.peak_users, it.maxConcurrentConnections)
+            }
+        }
+    } ?: Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        CircularProgressIndicator()
+    }
+}
+
+@Composable
+fun RowScope.StatsCard(titleResource: Int, value: Any) {
+    Card(modifier = Modifier.weight(1f).fillMaxHeight()) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(style = MaterialTheme.typography.titleMedium, text = stringResource(titleResource))
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(style = MaterialTheme.typography.headlineMedium, text = value.toString())
         }
     }
 }

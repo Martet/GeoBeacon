@@ -104,4 +104,13 @@
     <string name="delete">Delete</string>
     <string name="export">Export</string>
     <string name="duplicate">Copy</string>
+    <string name="stats">Statistics</string>
+    <string name="total_connections">Total connections</string>
+    <string name="unique_users">Unique users</string>
+    <string name="total_completions">Total completions</string>
+    <string name="successful_sessions">Successful users</string>
+    <string name="average_duration">Average duration</string>
+    <string name="longest_duration">Longest duration</string>
+    <string name="last_completion">Last success</string>
+    <string name="peak_users">Peak concurent users</string>
 </resources>

@@ -97,5 +97,14 @@
     <string name="ble_diabled">Bluetooth je vypnutý</string>
     <string name="delete">Smazat</string>
     <string name="export">Exportovat</string>
-    <string name="duplicate">Zkopírovat</string>
+    <string name="duplicate">Kopírovat</string>
+    <string name="stats">Statistika</string>
+    <string name="total_connections">Počet připojení</string>
+    <string name="unique_users">Unikátní uživatelé</string>
+    <string name="total_completions">Počet úspěšných dokončení</string>
+    <string name="successful_sessions">Úspěšní uživatelé</string>
+    <string name="average_duration">Průměrné trvání</string>
+    <string name="longest_duration">Nejdelší trvání</string>
+    <string name="last_completion">Poslední úspěch</string>
+    <string name="peak_users">Nejvíce uživatelů současně</string>
 </resources>

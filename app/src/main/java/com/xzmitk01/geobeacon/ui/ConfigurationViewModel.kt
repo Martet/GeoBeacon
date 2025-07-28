@@ -44,6 +44,7 @@ class ConfigurationViewModel(private val repository: EditorRepository, private v
     val passwordRepeatFieldError: StateFlow<Boolean> = _passwordRepeatFieldError.asStateFlow()
     private val _selectedDialog = MutableStateFlow<DialogData?>(null)
     val selectedDialog: StateFlow<DialogData?> = _selectedDialog.asStateFlow()
+    val stats = bluetoothManager.stats
 
     val dialogs = repository.dialogsFlow.map {
         it.filter { it.validationStatus in listOf(ValidDialogStatus.VALID, ValidDialogStatus.WARNING) }
@@ -84,14 +85,9 @@ class ConfigurationViewModel(private val repository: EditorRepository, private v
                     return@launch
                 }
                 if (deviceName.value != _nameFieldContent.value) {
-                    val oldName = deviceName.value
-                    bluetoothManager.readName()
-                    while (deviceName.value == oldName) {
-                        delay(10)
-                    }
+                    bluetoothManager.readCharacteristic(bluetoothManager.GAP_SERVICE_UUID, bluetoothManager.DEVICE_NAME_UUID)
                 }
                 _nameFieldContent.value = ""
-                delay(10)
             }
 
             if (_passwordFieldContent.value != "") {
@@ -104,7 +100,6 @@ class ConfigurationViewModel(private val repository: EditorRepository, private v
                 }
                 _passwordFieldContent.value = ""
                 _passwordRepeatFieldContent.value = ""
-                delay(10)
             }
 
             if (_selectedDialog.value != null) {

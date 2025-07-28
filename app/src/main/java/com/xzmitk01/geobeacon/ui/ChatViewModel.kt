@@ -208,6 +208,7 @@ class ChatViewModel(private val repository: ChatRepository, private val bluetoot
             bluetoothManager.disconnect()
             _conversation.value = ConversationData()
             _deviceName.value = null
+            deviceAddress = null
             lastQuestion = MessageData()
             lastAnswerNum = -1
             bluetoothManager.startScan()

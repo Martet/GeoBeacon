@@ -47,6 +47,7 @@ class BluetoothConnectionManager(private val context: Context) {
     val CONFIG_SET_PASSWORD_UUID = UUID.fromString("d077defe-750a-fa81-724a-81ca3fe60903")
     val CONFIG_NOTIFICATION_UUID = UUID.fromString("d077defe-750a-fa81-724a-81ca3fe60904")
     val CONFIG_DATA_UUID = UUID.fromString("d077defe-750a-fa81-724a-81ca3fe60905")
+    val CONFIG_STATS_UUID = UUID.fromString("d077defe-750a-fa81-724a-81ca3fe60906")
 
     val GAP_SERVICE_UUID = UUID.fromString("00001800-0000-1000-8000-00805f9b34fb")
     val DEVICE_NAME_UUID = UUID.fromString("00002a00-0000-1000-8000-00805f9b34fb")
@@ -71,7 +72,7 @@ class BluetoothConnectionManager(private val context: Context) {
     private val bluetoothManager = context.getSystemService(BluetoothManager::class.java)
     private val bluetoothAdapter = bluetoothManager?.adapter
     private val bluetoothLeScanner = bluetoothAdapter?.bluetoothLeScanner
-    private var gatt: BluetoothGatt? = null
+    private var gattClient: BluetoothGatt? = null
     var gattServer: BluetoothGattServer? = null
     private val wuartService = BluetoothGattService(WUART_SERVICE_UUID, BluetoothGattService.SERVICE_TYPE_PRIMARY).also {
         it.addCharacteristic(BluetoothGattCharacteristic(
@@ -83,7 +84,8 @@ class BluetoothConnectionManager(private val context: Context) {
     private var lastDisconnectTime: Long = 0
     private var scanning = false
     private var device: BluetoothDevice? = null
-    private var pendingContinuation: Continuation<Int>? = null
+    private var configContinuation: Continuation<Int>? = null
+    private var readContinuation: Continuation<ByteArray?>? = null
     private var continuationJob: Job? = null
     private val mutex = Mutex()
 
@@ -101,6 +103,8 @@ class BluetoothConnectionManager(private val context: Context) {
     val messageFlow: SharedFlow<String> = _messageFlow.asSharedFlow()
     private val _batteryLevel = MutableStateFlow<Int?>(null)
     val batteryLevel: StateFlow<Int?> = _batteryLevel.asStateFlow()
+    private val _stats = MutableStateFlow<StatsData?>(null)
+    val stats: StateFlow<StatsData?> = _stats.asStateFlow()
 
     @RequiresPermission(allOf = [Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT])
     fun startScan() {
@@ -108,8 +112,9 @@ class BluetoothConnectionManager(private val context: Context) {
             scanning = true
             CoroutineScope(Dispatchers.IO).launch {
                 Log.d("GeoBeacon", "Started scanning")
-                if (System.currentTimeMillis() - lastDisconnectTime < 5000) {
-                    delay(5000)
+                val lastDisconnectDelay = System.currentTimeMillis() - lastDisconnectTime
+                if (lastDisconnectDelay < 5000) {
+                    delay(lastDisconnectDelay)
                 }
                 if (gattServer == null) {
                     startServer()
@@ -134,18 +139,20 @@ class BluetoothConnectionManager(private val context: Context) {
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun connect(device: BluetoothDevice) {
-        gatt = device.connectGatt(context, false, gattCallback)
+        gattClient = device.connectGatt(context, false, gattCallback)
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun disconnect() {
-        gatt?.disconnect()
-        gatt?.close()
-        gatt = null
+        gattClient?.disconnect()
+        gattClient?.close()
+        gattClient = null
+        _ready.value = false
         _deviceName.value = null
         _deviceAddress.value = null
-        _ready.value = false
         _authorized.value = false
+        _batteryLevel.value = null
+        _stats.value = null
         lastDisconnectTime = System.currentTimeMillis()
     }
 
@@ -153,15 +160,22 @@ class BluetoothConnectionManager(private val context: Context) {
     fun authorize(password: String) {
         CoroutineScope(Dispatchers.IO).launch {
             val res = setConfigurationCharacteristic(CONFIG_PASSWORD_UUID, password.toByteArray())
-            if (res == BluetoothGatt.GATT_SUCCESS) {
-                _authorized.value = true
-                _authorizationError.tryEmit(0)
-            } else if (res == BluetoothGatt.GATT_INSUFFICIENT_AUTHORIZATION) {
-                _authorized.value = false
-                _authorizationError.tryEmit(1)
-            } else {
-                _authorized.value = false
-                _authorizationError.tryEmit(2)
+            when (res) {
+                BluetoothGatt.GATT_SUCCESS -> {
+                    _authorized.value = true
+                    _authorizationError.tryEmit(0)
+
+                    readCharacteristic(BATTERY_SERVICE_UUID, BATTERY_LEVEL_UUID)
+                    readCharacteristic(CONFIG_SERVICE_UUID, CONFIG_STATS_UUID)
+                }
+                BluetoothGatt.GATT_INSUFFICIENT_AUTHORIZATION -> {
+                    _authorized.value = false
+                    _authorizationError.tryEmit(1)
+                }
+                else -> {
+                    _authorized.value = false
+                    _authorizationError.tryEmit(2)
+                }
             }
         }
     }
@@ -178,13 +192,13 @@ class BluetoothConnectionManager(private val context: Context) {
                     return@suspendCoroutine
                 }
 
-                pendingContinuation = continuation
+                configContinuation = continuation
                 continuationJob = CoroutineScope(continuation.context).launch {
                     delay(5000)
-                    if (pendingContinuation != null) {
+                    if (configContinuation != null) {
                         Log.d("GeoBeacon", "Characteristic write timed out")
                         continuation.resume(BluetoothGatt.GATT_FAILURE)
-                        pendingContinuation = null
+                        configContinuation = null
                     }
                 }
             }
@@ -193,7 +207,7 @@ class BluetoothConnectionManager(private val context: Context) {
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     suspend fun transferDialog(data: ByteArray, packets: Int): Int = suspendCoroutine { continuation ->
-        val characteristic = gatt?.getService(CONFIG_SERVICE_UUID)
+        val characteristic = gattClient?.getService(CONFIG_SERVICE_UUID)
             ?.getCharacteristic(CONFIG_NOTIFICATION_UUID)
             ?: throw IllegalStateException("GATT write: Characteristic not found")
 
@@ -208,33 +222,33 @@ class BluetoothConnectionManager(private val context: Context) {
                 }
                 delay(10)
             }
-            pendingContinuation = continuation
+            configContinuation = continuation
             delay(100)
-            gatt?.readCharacteristic(characteristic)
+            gattClient?.readCharacteristic(characteristic)
 
             delay(5000)
-            if (pendingContinuation != null) {
+            if (configContinuation != null) {
                 Log.d("GeoBeacon", "Dialog write timed out")
                 continuation.resume(BluetoothGatt.GATT_FAILURE)
-                pendingContinuation = null
+                configContinuation = null
             }
         }
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
     fun writeCharacteristic(serviceUuid: UUID, charUuid: UUID, data: ByteArray, writeType: Int = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE): Int {
-        val characteristic = gatt?.getService(serviceUuid)
+        val characteristic = gattClient?.getService(serviceUuid)
             ?.getCharacteristic(charUuid)
             ?: throw IllegalStateException("GATT write: Characteristic not found")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            return gatt?.writeCharacteristic(characteristic, data, writeType)
+            return gattClient?.writeCharacteristic(characteristic, data, writeType)
                 ?: BluetoothGatt.GATT_FAILURE
         } else {
             characteristic.writeType = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
             @Suppress("DEPRECATION")
             characteristic.value = data
             @Suppress("DEPRECATION")
-            return when (gatt?.writeCharacteristic(characteristic)) {
+            return when (gattClient?.writeCharacteristic(characteristic)) {
                 true -> BluetoothGatt.GATT_SUCCESS
                 else -> BluetoothGatt.GATT_FAILURE
             }
@@ -242,13 +256,16 @@ class BluetoothConnectionManager(private val context: Context) {
     }
 
     @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
-    fun readName(setGatt: BluetoothGatt? = null) {
-        var gatt = gatt
-        if (setGatt != null) {
-            gatt = setGatt
+    suspend fun readCharacteristic(serviceUuid: UUID, charUuid: UUID): ByteArray? {
+        return mutex.withLock {
+            suspendCoroutine { continuation ->
+                val char = gattClient?.getService(serviceUuid)?.getCharacteristic(charUuid)
+                if (gattClient?.readCharacteristic(char) == false) {
+                    continuation.resume(null)
+                }
+                readContinuation = continuation
+            }
         }
-        val nameCharacteristic = gatt?.getService(GAP_SERVICE_UUID)?.getCharacteristic(DEVICE_NAME_UUID)
-        gatt?.readCharacteristic(nameCharacteristic)
     }
 
     private val scanCallback = object : ScanCallback() {
@@ -273,9 +290,18 @@ class BluetoothConnectionManager(private val context: Context) {
                 }
                 BluetoothProfile.STATE_DISCONNECTED -> {
                     _ready.value = false
+                    _deviceName.value = null
+                    _deviceAddress.value = null
                     _authorized.value = false
                     _gatt.close()
-                    gatt = null
+                    gattClient = null
+                    _stats.value = null
+                    _batteryLevel.value = null
+                    configContinuation?.resume(BluetoothGatt.GATT_FAILURE)
+                    configContinuation = null
+                    continuationJob?.cancel()
+                    readContinuation?.resume(null)
+                    readContinuation = null
                     startScan()
                 }
             }
@@ -284,17 +310,11 @@ class BluetoothConnectionManager(private val context: Context) {
         @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
         override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
             super.onServicesDiscovered(gatt, status)
-            if (status == BluetoothGatt.GATT_SUCCESS) {
-                _ready.value = true
-                Log.d("GeoBeacon", "Device short name: ${_deviceName.value}")
-                readName(gatt)
-                CoroutineScope(Dispatchers.IO).launch {
-                    delay(1000)
-                    val char = gatt.getService(BATTERY_SERVICE_UUID).getCharacteristic(BATTERY_LEVEL_UUID)
-                    gatt.readCharacteristic(char)
-                }
-            } else {
-                CoroutineScope(Dispatchers.IO).launch {
+            CoroutineScope(Dispatchers.IO).launch {
+                if (status == BluetoothGatt.GATT_SUCCESS) {
+                    Log.d("GeoBeacon", "Device short name: ${_deviceName.value}")
+                    readCharacteristic(GAP_SERVICE_UUID, DEVICE_NAME_UUID)
+                } else {
                     delay(250)
                     gatt.discoverServices()
                 }
@@ -312,23 +332,36 @@ class BluetoothConnectionManager(private val context: Context) {
                 when (characteristic.uuid) {
                     DEVICE_NAME_UUID -> {
                         _deviceName.value = value.toString(Charsets.UTF_8)
+                        _ready.value = true
                         Log.d("GeoBeacon", "Device long name: ${_deviceName.value}")
+                        readContinuation?.resume(value)
+                        readContinuation = null
                     }
                     CONFIG_NOTIFICATION_UUID -> {
                         continuationJob?.cancel()
-                        pendingContinuation?.resume(value[0].toInt())
-                        pendingContinuation = null
+                        configContinuation?.resume(value[0].toInt())
+                        configContinuation = null
                     }
                     BATTERY_LEVEL_UUID -> {
                         Log.d("GeoBeacon", "Battery level: ${value[0]}")
                         _batteryLevel.value = value[0].toInt()
+                        readContinuation?.resume(value)
+                        readContinuation = null
+                    }
+                    CONFIG_STATS_UUID -> {
+                        Log.d("GeoBeacon", "Stats: ${String(value)}")
+                        _stats.value = StatsData(value)
+                        readContinuation?.resume(value)
+                        readContinuation = null
                     }
                 }
             } else {
                 Log.d("GeoBeacon", "Characteristic read failed with $status")
                 continuationJob?.cancel()
-                pendingContinuation?.resume(status)
-                pendingContinuation = null
+                configContinuation?.resume(status)
+                configContinuation = null
+                readContinuation?.resume(null)
+                readContinuation = null
             }
         }
 
@@ -344,8 +377,8 @@ class BluetoothConnectionManager(private val context: Context) {
             ) {
                 Log.d("GeoBeacon", "Characteristic write status: $status")
                 continuationJob?.cancel()
-                pendingContinuation?.resume(status)
-                pendingContinuation = null
+                configContinuation?.resume(status)
+                configContinuation = null
             }
         }
     }
