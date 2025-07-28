@@ -1,4 +1,4 @@
-package com.xzmitk01.geobeacon.ui
+package com.xzmitk01.geobeacon.ui.viewModel
 
 import android.annotation.SuppressLint
 import androidx.lifecycle.ViewModel

@@ -45,8 +45,8 @@ import com.xzmitk01.geobeacon.ui.EditorScreen
 import com.xzmitk01.geobeacon.ui.HistoryScreen
 import com.xzmitk01.geobeacon.ui.MainScreen
 import com.xzmitk01.geobeacon.ui.SettingsScreen
-import com.xzmitk01.geobeacon.ui.SettingsViewModel
 import com.xzmitk01.geobeacon.ui.theme.GeoBeaconTheme
+import com.xzmitk01.geobeacon.ui.viewModel.SettingsViewModel
 
 class MainActivity : ComponentActivity() {
     val permissionsGranted = mutableStateOf(false)

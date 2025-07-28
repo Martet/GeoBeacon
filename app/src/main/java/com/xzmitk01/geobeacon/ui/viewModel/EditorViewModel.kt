@@ -1,4 +1,4 @@
-package com.xzmitk01.geobeacon.ui
+package com.xzmitk01.geobeacon.ui.viewModel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider

@@ -1,4 +1,4 @@
-package com.xzmitk01.geobeacon.ui
+package com.xzmitk01.geobeacon.ui.viewModel
 
 import android.annotation.SuppressLint
 import android.util.Log
@@ -111,7 +111,10 @@ class ChatViewModel(private val repository: ChatRepository, private val bluetoot
                             closedQuestion = isClosedQuestion,
                             answers = if (isClosedQuestion) {
                                 splitQuestion.subList(1, splitQuestion.size).map { answer ->
-                                    MessageAnswer(answer.split(regex)[1], AnswerStatus.ANSWER_UNANSWERED)
+                                    MessageAnswer(
+                                        answer.split(regex)[1],
+                                        AnswerStatus.ANSWER_UNANSWERED
+                                    )
                                 }
                             } else {
                                 emptyList()
@@ -237,10 +240,11 @@ class ChatViewModel(private val repository: ChatRepository, private val bluetoot
     }
 
     companion object {
-        fun Factory(repository: ChatRepository, bluetoothManager: BluetoothConnectionManager): ViewModelProvider.Factory = viewModelFactory {
-            initializer {
-                ChatViewModel(repository, bluetoothManager)
+        fun Factory(repository: ChatRepository, bluetoothManager: BluetoothConnectionManager): ViewModelProvider.Factory =
+            viewModelFactory {
+                initializer {
+                    ChatViewModel(repository, bluetoothManager)
+                }
             }
-        }
     }
 }

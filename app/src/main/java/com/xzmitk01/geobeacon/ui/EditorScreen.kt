@@ -81,6 +81,7 @@ import com.xzmitk01.geobeacon.data.TransitionData
 import com.xzmitk01.geobeacon.data.ValidationResult
 import com.xzmitk01.geobeacon.data.toColor
 import com.xzmitk01.geobeacon.data.toStringResource
+import com.xzmitk01.geobeacon.ui.viewModel.EditorViewModel
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import java.text.DateFormat

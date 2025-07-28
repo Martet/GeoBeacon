@@ -44,6 +44,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.xzmitk01.geobeacon.GeoBeaconApp
 import com.xzmitk01.geobeacon.R
 import com.xzmitk01.geobeacon.data.ConversationData
+import com.xzmitk01.geobeacon.ui.viewModel.HistoryViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

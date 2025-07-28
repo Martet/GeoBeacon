@@ -66,6 +66,7 @@ import com.xzmitk01.geobeacon.GeoBeaconApp
 import com.xzmitk01.geobeacon.R
 import com.xzmitk01.geobeacon.data.BluetoothConnectionManager
 import com.xzmitk01.geobeacon.data.ValidDialogStatus
+import com.xzmitk01.geobeacon.ui.viewModel.ConfigurationViewModel
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 
